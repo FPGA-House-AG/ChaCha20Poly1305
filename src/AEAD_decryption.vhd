@@ -33,7 +33,7 @@ entity AEAD_decryption is
 		axi_tready_out        : in STD_LOGIC;
 ------------------------------
 -- additional ports		
-        tag_valid             : out STD_LOGIC;
+        tag_valid             : out STD_LOGIC:='0';
 		n_in                  : in  unsigned(6 downto 0)
 		);
 end AEAD_decryption;
@@ -105,7 +105,7 @@ signal axi_tvalid_in_poly       : STD_LOGIC:='0';
 signal n_bytes,n_bytes2         : unsigned(15 downto 0);
 signal shreg_ciptext            : type_shreg_ciptext;
 signal shreg_plaintext          : type_shreg_plaintext;
-signal tag_out                  : unsigned(127 downto 0);
+signal tag_out                  : unsigned(127 downto 0):=(others=>'0');
 signal axi_tlast_poly_out       : STD_LOGIC:='0';
 signal axi_tvalid_poly_out      : STD_LOGIC:='0';
 signal axi_tlast_in_chacha      : STD_LOGIC:='0'; 
