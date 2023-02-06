@@ -1,7 +1,7 @@
 
 
 --in this module we have to split first clock out of next data
-
+--30.01.2023 - changed n_in
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
@@ -178,7 +178,7 @@ u1 : AEAD_decryption
 
     );
     
-n_in_int <=  (n_in+1);
+n_in_int <=  (n_in);--+1);
 --msg_reordered <= order_128(axi_tdata_in_msg);
 msg_reordered <= (axi_tdata_in_msg);
 
