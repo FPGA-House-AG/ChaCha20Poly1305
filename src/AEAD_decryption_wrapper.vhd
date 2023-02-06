@@ -33,7 +33,7 @@ end AEAD_decryption_wrapper;
 
 architecture Behavioral of AEAD_decryption_wrapper is
 
-COMPONENT AEAD_decryption_wrapper is
+COMPONENT AEAD_decryption is
  Port ( 
         clk					: in  STD_LOGIC;
 -----------------------------
@@ -69,40 +69,6 @@ COMPONENT AEAD_decryption_wrapper is
 ----------------------------
         );
 end COMPONENT;
-
-COMPONENT AEAD_decryption is
- Port ( 
-        clk					: in  STD_LOGIC;
------------------------------
---  axi_st_in_data
-		axi_tvalid_in_ciptext    : in  STD_LOGIC;
-		axi_tlast_in_ciptext     : in  STD_LOGIC;
-		axi_tdata_in_ciptext     : in  UNSIGNED(127 downto 0);
-		axi_tready_in_ciptext    : out STD_LOGIC:='1';
------------------------------
---  axi_st_in_key
---		axi_tvalid_in_key    : in  STD_LOGIC;
---		axi_tlast_in_key     : in  STD_LOGIC;
-		axi_tdata_in_key     : in  UNSIGNED(255 downto 0);
---		axi_tready_in_key    : out STD_LOGIC;
-------------------------------
---  axi_st_in_nonce
-		axi_tvalid_in_nonce   : in  STD_LOGIC;
-		axi_tlast_in_nonce    : in  STD_LOGIC;
-		axi_tdata_in_nonce    : in  UNSIGNED(95 downto 0);
-		axi_tready_in_nonce   : out STD_LOGIC;
-------------------------------
---  axi_st_out
-		axi_tvalid_out        : out  STD_LOGIC;
-		axi_tlast_out         : out  STD_LOGIC;
-		axi_tdata_out         : out  UNSIGNED(127 downto 0);
-		axi_tready_out        : in STD_LOGIC;
-------------------------------
--- additional ports		
-        tag_valid             : out STD_LOGIC;
-		n_in                  : in  unsigned(6 downto 0)
-		);
-end  COMPONENT;
 
 function  order_128  (a : unsigned(127 downto 0)) return unsigned is
 	variable b1 : unsigned(127 downto 0):=(others=>'0');
