@@ -29,7 +29,7 @@
 
 TOPLEVEL_LANG ?= vhdl
 SIM ?= ghdl
-WAVES ?= 0
+WAVES ?= 1
 
 COCOTB_HDL_TIMEUNIT = 1ns
 COCOTB_HDL_TIMEPRECISION = 1ps
@@ -43,6 +43,7 @@ ifeq ($(TOPLEVEL_LANG), verilog)
 VERILOG_SOURCES += $(DUTDIR)/$(DUT).v
 else ifeq ($(TOPLEVEL_LANG), vhdl)
 VHDL_SOURCES += $(DUTDIR)/$(DUT).vhd
+VHDL_SOURCES += $(DUTDIR)/AEAD_ChaCha_Poly.vhd
 
 TOPLEVEL = $(shell echo $(DUT) | tr A-Z a-z)
 endif
@@ -85,7 +86,9 @@ else ifeq ($(TOPLEVEL_LANG), vhdl)
         SIM_ARGS += --backtrace-severity=warning --assert-level=none --ieee-asserts=disable
 
 		ifeq ($(WAVES), 1)
-			SIM_ARGS += --wave=wave.ghw 
+			#SIM_ARGS += --wave=wave.ghw
+			# faster:
+			SIM_ARGS += --fst=wave.fst
 		endif
 
     else ifneq ($(filter $(SIM),questa modelsim riviera activehdl),)

@@ -52,8 +52,8 @@ from cocotb.result import TestError
 from cocotbext.axi import AxiStreamBus, AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 import sys
 sys.path.insert(0, "..")
-#from BitMonitor import BitMonitor
-#from AxiStreamClockedMonitor import AxiStreamClockedMonitor
+from BitMonitor import BitMonitor
+from AxiStreamClockedMonitor import AxiStreamClockedMonitor
 
 class TB(object):
     def __init__(self, dut):
@@ -64,18 +64,19 @@ class TB(object):
 
         cocotb.fork(Clock(dut.clk, 4, units="ns").start())
         self.__next_is_sop__ = False
+
         # connect TB source to DUT sink, and vice versa
         # byte_lanes = 16 is workaround for https://github.com/alexforencich/cocotbext-axi/issues/46
+
+        self.source  = AxiStreamSource (AxiStreamBus.from_prefix(dut, "sink"), dut.clk, dut.rst, byte_lanes = 16)
+        self.sink    =   AxiStreamSink (AxiStreamBus.from_prefix(dut, "source" ), dut.clk, dut.rst, byte_lanes = 16)
         
-        #self.source  = AxiStreamSource (AxiStreamBus.from_prefix(dut, "sink"),     dut.clk, dut.reset, byte_lanes = 64)
-        #self.sink    =   AxiStreamSink (AxiStreamBus.from_prefix(dut, "source"  ), dut.clk, dut.reset, byte_lanes = 16)
-        
-        #This monitor is instantiated "from the Source side". Thus it effectively only has signals relevant to the source.
-        #self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "source" ), dut.clk, dut.reset)
+        #This monitor is instantiated "from the INPUT side". Thus it effectively only has signals relevant to the INPUT.
+        #self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "source" ), dut.clk, dut.rst)
         
         #Instantiate the signal sniffers through the use of BitMonitor class or bus sniffers with the use of AxiStreamClockedMonitor class
         #self.source_bus_tlast_monitor = BitMonitor("source_bus_tlast", self.source.bus.tlast, self.dut.clk, True, callback=self.model)
-        #self.source_sink_bus_monitor = AxiStreamClockedMonitor("source_sink_bus", self.monitor, self.dut.clk, True, callback=self.callback_function, event=None)
+        #self.in_out_bus_monitor = AxiStreamClockedMonitor("sink_source_bus", self.monitor, self.dut.clk, True, callback=self.callback_function, event=None)
 
     def is_start_of_packet(self, transaction_info):
         if(transaction_info['tvalid'] == '1' and transaction_info['tready'] == '1'):
@@ -101,60 +102,95 @@ class TB(object):
             self.source.set_pause_generator(generator())
 
     async def reset(self):
-        self.dut.reset.setimmediatevalue(0)
+        self.dut.rst.setimmediatevalue(0)
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.reset.value = 1
+        self.dut.rst.value = 1
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.reset.value = 0
+        self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-
+        #self.dut.in_msg_axi_tvalid = 0
+        #self.dut.in_msg_axi_tlast  = 0
+        #self.dut.out_axi_tvalid    = 1
+        #self.dut.out_axi_tlast     = 0
+        #self.dut.out_axi_tready    = 1
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
+        await RisingEdge(self.dut.clk)
 
 async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=None, idle_inserter=None):
 
     tb = TB(dut)
-
-    '''
-
-    tb.dut.sink_length =   BinaryValue(16, n_bits = 12, bigEndian = False)
+    #tb.dut.sink_length =   BinaryValue(16, n_bits = 12, bigEndian = False)
 
     await tb.reset()    
-    
     tb.set_idle_generator(idle_inserter)
+    tb.log.info("Payload lengths is (16bytes cycles) %s" % payload_lengths())
+    tb.log.info("Length of plaintext is (bytes): %s" % len(payload_data()))
+    tb.log.info("Number of AXI transfers (handshakes): %s" % str(payload_lengths()))
 
-
-    tb.log.info("Payload lengths is %s" % payload_lengths()[0])
+    
     test_pkts = []
     test_frames = []
-    sink_length_ref_val = tb.dut.sink_length.value.binstr
-    source_length_ref_val = tb.dut.source_length.value.binstr
-
-    for pkt_len in payload_lengths():
-        payload = payload_data(pkt_len)
+    
+    #sink_length_ref_val = tb.dut.sink_length.value.binstr
+    #source_length_ref_val = tb.dut.source_length.value.binstr
+    '''
+    for cycle in range(payload_lengths()):
+        tb.log.info("AXI transaction # %s" % str(cycle + 1))
+        tb.log.info("cycle is %s" % cycle)
+        payload = payload_data(cycle)["plaintext"]
+        key     = payload_data(cycle)["key"]
+        tb.log.info("Payload is: %s" % payload)
+        tb.log.info("Key is: %s" % key)
+        tb.log.info("Payload type is: %s" % type(payload))
+    
         test_pkt = bytearray(payload)
         test_pkts.append(test_pkt)
+    
+        #sink_length_test_val = tb.dut.sink_length.value.binstr
+        #source_length_test_val = tb.dut.source_length.value.binstr
 
-        sink_length_test_val = tb.dut.sink_length.value.binstr
-        source_length_test_val = tb.dut.source_length.value.binstr
-
-        test_frame = AxiStreamFrame(test_pkt)
+        test_frame = AxiStreamFrame(test_pkt)#, tx_complete=print("COMPLETED TX EVENT"))
         test_frames.append(test_frame)
+        tb.log.info("Test frames so far are: %s" % test_frames)
+    '''
 
-        await tb.source.send(test_pkt)
-        await tb.source.wait()
+    payload = bytearray(payload_data())
+    key = payload_data(0)["key"]
+    tb.dut.in_key = BinaryValue(value=key, n_bits=len(key) * 8)
+    test_frame = AxiStreamFrame(payload)#, tx_complete=print("COMPLETED TX EVENT"))
+    await tb.source.send(test_frame)
+    #await tb.source.wait()
+    rx_frame = await tb.sink.recv()
 
-        assert sink_length_ref_val == sink_length_test_val
-        assert source_length_ref_val == source_length_test_val
-        assert tb.source.bus.tlast.value  == 1
-        assert tb.source.bus.tready.value == 1
-        assert tb.source.bus.tvalid.value == 1 
+        #assert sink_length_ref_val == sink_length_test_val
+        #assert source_length_ref_val == source_length_test_val
+        #assert tb.source.bus.tlast.value  == 1
+        #assert tb.source.bus.tready.value == 1
+        #assert tb.source.bus.tvalid.value == 1 
         
+    #for i in range(100):
+    #    await RisingEdge(self.dut.clk)
 
-    tb.log.info("Waiting to receive packet on our sink.")
-    assert ~tb.sink.empty()
-
+    #tb.log.info("Waiting to receive packet on our sink.")
+    #assert not tb.sink.empty()
+    '''
+    
     while(not tb.sink.empty()):
         if(tb.sink.bus.tready == 1 and tb.sink.bus.tvalid == 1):
             rx_frame = await tb.sink.recv()
@@ -162,14 +198,14 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
             tb.log.info("Output Payload length is: %s bytes or %s bits \n" % (str(len(rx_frame)), str(len(rx_frame) * 8)))
             sink_length_test_val = tb.dut.sink_length.value.binstr
             source_length_test_val = tb.dut.source_length.value.binstr
-            assert sink_length_ref_val == sink_length_test_val
-            assert source_length_ref_val == source_length_test_val
+            #assert sink_length_ref_val == sink_length_test_val
+            #assert source_length_ref_val == source_length_test_val
             rx_pkt = bytes(rx_frame)
         else:
             tb.log.info("Sink not ready to recieve data")
             await RisingEdge(tb.dut.clk)
 
-
+    
     #Clean in/out buffer test
     assert tb.source.empty()
     assert tb.sink.empty()
@@ -201,8 +237,8 @@ def size_list():
     return list(range(1, 129))
 
 def payload_size_list_t1():
-    #here we define the payload size 128 = 16 * 8b,
-    return list(range(16, 17))
+    #here we define the payload size 160 = 16bytes * 10cycles,
+    return 10
 
 def payload_size_list_t2():
     return list(range(32, 33))
@@ -211,20 +247,41 @@ def payload_size_list_t2():
 def header_size_list():
     return list(range(1, 4))
 
-
 def incrementing_payload_256(length):
     return bytearray(itertools.islice(itertools.cycle(range(0, 256)), length))
 
 def incrementing_payload_128(length):
     return bytearray(itertools.islice(itertools.cycle(range(0, 128)), length))
 
+def plaintext_bytearray_key_1(index = None):
+    
+
+    plaintext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
+    plaintext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
+    plaintext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4'
+    plaintext = bytearray.fromhex(plaintext_hex)
+    print(plaintext)
+    #        var packet_length = 64 + 64 + 16 + 16 // bytes 128+32 = 160
+
+
+    #plaintext = b'\x4c\x61\x64\x69\x65\x73\x20\x61\x6e\x64\x20\x47\x65\x6e\x74\x6c\x65\x6d\x65\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x63\x6c\x61\x73\x73\x20\x6f\x66\x20\x27\x39\x39\x3a\x20\x49\x66\x20\x49\x20\x63\x6f\x75\x6c\x64\x20\x6f\x66\x66\x65\x72\x20\x79\x6f\x75\x20\x6f\x6e\x6c\x79\x20\x6f\x6e\x65\x20\x74\x69\x70\x20\x66\x6f\x72\x20\x74\x68\x65\x20\x66\x75\x74\x75\x72\x65\x2c\x20\x73\x75\x6e\x73\x63\x72\x65\x65\x6e\x20\x77\x6f\x75\x6c\x64\x20\x62\x65\x20\x69\x74\x2e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    key = b'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F'
+
+    #print(plaintext)
+    #return b'\x4c\x61\x64\x69\x65\x73\x20\x61\x6e\x64\x20\x47\x65\x6e\x74\x6c\x65\x6d\x65\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x63\x6c\x61\x73\x73\x20\x6f\x66\x20\x27\x39\x39\x3a\x20\x49\x66\x20\x49\x20\x63\x6f\x75\x6c\x64\x20\x6f\x66\x66\x65\x72\x20\x79\x6f\x75\x20\x6f\x6e\x6c\x79\x20\x6f\x6e\x65\x20\x74\x69\x70\x20\x66\x6f\x72\x20\x74\x68\x65\x20\x66\x75\x74\x75\x72\x65\x2c\x20\x73\x75\x6e\x73\x63\x72\x65\x65\x6e\x20\x77\x6f\x75\x6c\x64\x20\x62\x65\x20\x69\x74\x2e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    if(index is not None):
+        index = int(index)
+        return {"plaintext": plaintext[index*16 : index*16 + 16], "key": key}
+    else:
+        return plaintext
+
 
 if cocotb.SIM_NAME:
 
     factory = TestFactory(run_test)
-    #factory.add_option("payload_lengths", [payload_size_list_t1, payload_size_list_t2])
-    #factory.add_option("payload_data", [incrementing_payload_256, incrementing_payload_256])
-    #factory.add_option("idle_inserter", [None, cycle_pause])
+    factory.add_option("payload_lengths", [payload_size_list_t1])#, payload_size_list_t2])
+    factory.add_option("payload_data", [plaintext_bytearray_key_1])#, incrementing_payload_256])
+    factory.add_option("idle_inserter", [cycle_pause])#, cycle_pause])
     factory.generate_tests()
 
 
