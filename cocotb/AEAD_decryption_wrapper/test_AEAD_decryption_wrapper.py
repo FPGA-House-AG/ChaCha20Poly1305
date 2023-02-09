@@ -52,8 +52,8 @@ from cocotb.result import TestError
 from cocotbext.axi import AxiStreamBus, AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 import sys
 sys.path.insert(0, "..")
-from BitMonitor import BitMonitor
-from AxiStreamClockedMonitor import AxiStreamClockedMonitor
+#from BitMonitor import BitMonitor
+#from AxiStreamClockedMonitor import AxiStreamClockedMonitor
 
 class TB(object):
     def __init__(self, dut):
@@ -64,46 +64,18 @@ class TB(object):
 
         cocotb.fork(Clock(dut.clk, 4, units="ns").start())
         self.__next_is_sop__ = False
-
-        '''
-        entity AEAD_decryption_wrapper is
-        Port ( 
-                clk                  : in  STD_LOGIC;
-                rst                  : in  STD_LOGIC;
-        ------------------------------
-        --  axi_st_in_data
-                in_msg_axi_tvalid    : in  STD_LOGIC;
-                in_msg_axi_tlast     : in  STD_LOGIC;
-                in_msg_axi_tdata     : in  UNSIGNED(127 downto 0);
-                in_msg_axi_tready    : out STD_LOGIC:='1';
-        ------------------------------
-                axi_tdata_in_key     : in  UNSIGNED(255 downto 0);
-        ------------------------------
-        --  axi_st_out
-                out_axi_tvalid       : out STD_LOGIC;
-                out_axi_tlast        : out STD_LOGIC;
-                out_axi_tdata        : out UNSIGNED(127 downto 0);
-                out_axi_tready       : in  STD_LOGIC;
-        ------------------------------
-                tag_valid            : out STD_LOGIC
-                
-                );
-        end AEAD_decryption_wrapper;
-        '''
-
-
         # connect TB source to DUT sink, and vice versa
         # byte_lanes = 16 is workaround for https://github.com/alexforencich/cocotbext-axi/issues/46
-
-        self.source  = AxiStreamSource (AxiStreamBus.from_prefix(dut, "out_axi"), dut.clk, dut.rst, byte_lanes = 16)
-        self.sink    =   AxiStreamSink (AxiStreamBus.from_prefix(dut, "in_msg_axi" ), dut.clk, dut.rst, byte_lanes = 16)
         
-        #This monitor is instantiated "from the INPUT side". Thus it effectively only has signals relevant to the INPUT.
-        self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "in_msg_axi" ), dut.clk, dut.rst)
+        #self.source  = AxiStreamSource (AxiStreamBus.from_prefix(dut, "sink"),     dut.clk, dut.reset, byte_lanes = 64)
+        #self.sink    =   AxiStreamSink (AxiStreamBus.from_prefix(dut, "source"  ), dut.clk, dut.reset, byte_lanes = 16)
+        
+        #This monitor is instantiated "from the Source side". Thus it effectively only has signals relevant to the source.
+        #self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "source" ), dut.clk, dut.reset)
         
         #Instantiate the signal sniffers through the use of BitMonitor class or bus sniffers with the use of AxiStreamClockedMonitor class
         #self.source_bus_tlast_monitor = BitMonitor("source_bus_tlast", self.source.bus.tlast, self.dut.clk, True, callback=self.model)
-        self.in_out_bus_monitor = AxiStreamClockedMonitor("in_out_bus", self.monitor, self.dut.clk, True, callback=self.callback_function, event=None)
+        #self.source_sink_bus_monitor = AxiStreamClockedMonitor("source_sink_bus", self.monitor, self.dut.clk, True, callback=self.callback_function, event=None)
 
     def is_start_of_packet(self, transaction_info):
         if(transaction_info['tvalid'] == '1' and transaction_info['tready'] == '1'):
@@ -129,13 +101,13 @@ class TB(object):
             self.source.set_pause_generator(generator())
 
     async def reset(self):
-        self.dut.rst.setimmediatevalue(0)
+        self.dut.reset.setimmediatevalue(0)
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst.value = 1
+        self.dut.reset.value = 1
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst.value = 0
+        self.dut.reset.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
@@ -144,15 +116,15 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
 
     tb = TB(dut)
 
-    
-
-    #tb.dut.sink_length =   BinaryValue(16, n_bits = 12, bigEndian = False)
-
-    #await tb.rst()    
-    
-    #tb.set_idle_generator(idle_inserter)
-
     '''
+
+    tb.dut.sink_length =   BinaryValue(16, n_bits = 12, bigEndian = False)
+
+    await tb.reset()    
+    
+    tb.set_idle_generator(idle_inserter)
+
+
     tb.log.info("Payload lengths is %s" % payload_lengths()[0])
     test_pkts = []
     test_frames = []
@@ -252,7 +224,7 @@ if cocotb.SIM_NAME:
     factory = TestFactory(run_test)
     #factory.add_option("payload_lengths", [payload_size_list_t1, payload_size_list_t2])
     #factory.add_option("payload_data", [incrementing_payload_256, incrementing_payload_256])
-    factory.add_option("idle_inserter", [None])#, cycle_pause])
+    #factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
 

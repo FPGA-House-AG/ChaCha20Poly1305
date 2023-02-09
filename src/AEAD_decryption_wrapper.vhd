@@ -3,7 +3,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
----use work.bus_pkg1.all;
+use work.bus_pkg1.all;
 
 entity AEAD_decryption_wrapper is
   Port ( 
@@ -11,18 +11,18 @@ entity AEAD_decryption_wrapper is
         rst                  : in  STD_LOGIC;
 ------------------------------
 --  axi_st_in_data
-		in_msg_axi_tvalid    : in  STD_LOGIC;
-		in_msg_axi_tlast     : in  STD_LOGIC;
-		in_msg_axi_tdata     : in  UNSIGNED(127 downto 0);
-		in_msg_axi_tready    : out STD_LOGIC:='1';
+		axi_tvalid_in_msg    : in  STD_LOGIC;
+		axi_tlast_in_msg     : in  STD_LOGIC;
+		axi_tdata_in_msg     : in  UNSIGNED(127 downto 0);
+		axi_tready_in_msg    : out STD_LOGIC:='1';
 ------------------------------
 		axi_tdata_in_key     : in  UNSIGNED(255 downto 0);
 ------------------------------
 --  axi_st_out
-		out_axi_tvalid       : out STD_LOGIC;
-		out_axi_tlast        : out STD_LOGIC;
-		out_axi_tdata        : out UNSIGNED(127 downto 0);
-		out_axi_tready       : in  STD_LOGIC;
+		axi_tvalid_out       : out STD_LOGIC;
+		axi_tlast_out        : out STD_LOGIC;
+		axi_tdata_out        : out UNSIGNED(127 downto 0);
+		axi_tready_out       : in  STD_LOGIC;
 ------------------------------
 		tag_valid            : out STD_LOGIC
 		
@@ -54,10 +54,10 @@ COMPONENT AEAD_decryption_wrapper is
 		axi_tready_in_nonce  : out STD_LOGIC;
 ------------------------------
 --  axi_st_out
-		out_axi_tvalid       : out STD_LOGIC;
-		out_axi_tlast        : out STD_LOGIC;
-		out_axi_tdata        : out UNSIGNED(127 downto 0);
-		out_axi_tready       : in  STD_LOGIC;
+		axi_tvalid_out       : out STD_LOGIC;
+		axi_tlast_out        : out STD_LOGIC;
+		axi_tdata_out        : out UNSIGNED(127 downto 0);
+		axi_tready_out       : in  STD_LOGIC;
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC;
@@ -91,10 +91,10 @@ COMPONENT AEAD_decryption is
 		axi_tready_in_nonce   : out STD_LOGIC;
 ------------------------------
 --  axi_st_out
-		out_axi_tvalid        : out  STD_LOGIC;
-		out_axi_tlast         : out  STD_LOGIC;
-		out_axi_tdata         : out  UNSIGNED(127 downto 0);
-		out_axi_tready        : in STD_LOGIC;
+		axi_tvalid_out        : out  STD_LOGIC;
+		axi_tlast_out         : out  STD_LOGIC;
+		axi_tdata_out         : out  UNSIGNED(127 downto 0);
+		axi_tready_out        : in STD_LOGIC;
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC;
@@ -167,24 +167,24 @@ u1 : AEAD_decryption
 --		axi_tready_in_nonce => axi_tready_in_nonce,
 ------------------------------
 --  axi_st_out
-        out_axi_tvalid      => out_axi_tvalid,
-        out_axi_tlast       => out_axi_tlast,
-        out_axi_tdata       => out_axi_tdata,
-        out_axi_tready      => '1',
+        axi_tvalid_out      => axi_tvalid_out,
+        axi_tlast_out       => axi_tlast_out,
+        axi_tdata_out       => axi_tdata_out,
+        axi_tready_out      => '1',
         tag_valid           => tag_valid,
         n_in                => n_in_int--n_in
 
     );
     
 n_in_int <=  (n_in+1);
---msg_reordered <= order_128(in_msg_axi_tdata);
-msg_reordered <= (in_msg_axi_tdata);
+--msg_reordered <= order_128(axi_tdata_in_msg);
+msg_reordered <= (axi_tdata_in_msg);
 
 process(clk)
 begin
 if rising_edge(clk) then
     msg_shift <= msg_reordered;
-    tlast_msg  <= in_msg_axi_tlast;
+    tlast_msg  <= axi_tlast_in_msg;
 end if;
 end process;
 
@@ -192,10 +192,10 @@ end process;
 process(clk)
 begin
 if rising_edge(clk) then
-    if in_msg_axi_tlast = '1' then
+    if axi_tlast_in_msg = '1' then
         active_packet <= '0';
     else
-        if in_msg_axi_tvalid = '1' then
+        if axi_tvalid_in_msg = '1' then
             active_packet <= '1';
         end if;
     end if;
@@ -206,7 +206,7 @@ key_load:process(clk)
 begin
 if rising_edge(clk) then
 
-    if in_msg_axi_tvalid = '1' and active_packet='0' then
+    if axi_tvalid_in_msg = '1' and active_packet='0' then
 --        key         <= order_256(axi_tdata_in_key);--for corundum
         key         <= (axi_tdata_in_key);---for Big endian TB
     end if;
@@ -218,7 +218,7 @@ nonce_load:process(clk)
 begin
 if rising_edge(clk) then
 
-    if in_msg_axi_tvalid = '1' and active_packet='0' then
+    if axi_tvalid_in_msg = '1' and active_packet='0' then
         tvalid_nonce  <= '1';
         tlast_nonce   <= '1';
 --        nonce         <= x"00000000"&msg_reordered(63 downto 0);
@@ -236,7 +236,7 @@ msg_load:process(clk)
 begin
 if rising_edge(clk) then
 
-    if in_msg_axi_tvalid = '1' then
+    if axi_tvalid_in_msg = '1' then
         if active_packet='0' then
             tvalid_msg <= '0';
         else
