@@ -189,8 +189,8 @@ if rising_edge(clk) then
     if sink_tvalid = '1' and active_packet='0' then
         tvalid_nonce  <= '1';
         tlast_nonce   <= '1';
---        nonce         <= x"00000000"&msg_reordered(63 downto 0);
-        nonce <= x"070000004041424344454647";---for testbench compatible to RFC7539
+        nonce         <= x"00000000"&msg_reordered(63 downto 0);---for Wireguard
+--        nonce <= x"070000004041424344454647";---for testbench compatible to RFC7539
         n_in          <= msg_reordered(106 downto 100);
     else
         tvalid_nonce  <= '0';
