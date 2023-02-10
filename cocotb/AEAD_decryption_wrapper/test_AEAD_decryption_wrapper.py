@@ -113,9 +113,9 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         #self.dut.in_msg_axi_tvalid = 0
         #self.dut.in_msg_axi_tlast  = 0
-        #self.dut.out_axi_tvalid    = 1
-        #self.dut.out_axi_tlast     = 0
-        #self.dut.out_axi_tready    = 1
+        #self.dut.source_tvalid    = 0
+        #self.dut.source_tlast     = 0
+        #self.dut.source_tready    = 1
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
@@ -253,14 +253,34 @@ def incrementing_payload_256(length):
 def incrementing_payload_128(length):
     return bytearray(itertools.islice(itertools.cycle(range(0, 128)), length))
 
+
+def reverse_bytearray(byte_array):
+    info = [byte_array[i : i + 16] for i in range(0, len(byte_array), 16)]
+    for i in range(0, len(info)):
+        info[i].reverse()
+    #info = bytes(info)
+    return bytearray(b''.join(info))
+
+
+
 def plaintext_bytearray_key_1(index = None):
     
 
-    plaintext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd 2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a 8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
-    plaintext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
-    plaintext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4'
+    plaintext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
+    plaintext_hex+= 'a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd ' 
+    plaintext_hex+= '2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a ' 
+    plaintext_hex+= '8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
+    plaintext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 ' 
+    plaintext_hex+= 'aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 ' 
+    plaintext_hex+= '16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 ' 
+    plaintext_hex+= '20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
+    plaintext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 ' 
+    plaintext_hex+= '2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 '
     plaintext = bytearray.fromhex(plaintext_hex)
-    print(plaintext)
+    
+    plaintext = reverse_bytearray(plaintext)
+
+    #print(", ".join(hex(b) for b in plaintext).replace('\\x', ' ').replace('0x', ' '))
     #        var packet_length = 64 + 64 + 16 + 16 // bytes 128+32 = 160
 
 
