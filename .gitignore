@@ -1,9 +1,5 @@
 # Any output files are to be ignored
 *.o
-# Any waveform files are to be ignored
-*.fst
-#Any .xml reports are to be ignored
-*.xml
 #Any files without extensions are to be ignored
 *
 !*/
@@ -11,3 +7,11 @@
 #Any helper directories are to be ignored
 __pycache__
 sim_build
+#Any files containing the tilde are to be ignored
+*~*
+#Any XML files are to be ignored
+*.XML
+*.xml
+#Any waveform files are to be ignored
+*.fst
+*.fst.hier
