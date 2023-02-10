@@ -42,8 +42,11 @@ DUTDIR   = ../../src
 ifeq ($(TOPLEVEL_LANG), verilog)
 VERILOG_SOURCES += $(DUTDIR)/$(DUT).v
 else ifeq ($(TOPLEVEL_LANG), vhdl)
-VHDL_SOURCES += $(DUTDIR)/$(DUT).vhd
-VHDL_SOURCES += $(DUTDIR)/AEAD_ChaCha_Poly.vhd
+#VHDL_SOURCES += $(DUTDIR)/$(DUT).vhd
+#VHDL_SOURCES += $(DUTDIR)/AEAD_ChaCha_Poly.vhd
+#VHDL_SOURCES += $(DUTDIR)/AEAD_decryption.vhd
+#VHDL_SOURCES += $(DUTDIR)/AEAD_decryption_top.vhd
+VHDL_SOURCES += $(DUTDIR)/*.vhd
 
 TOPLEVEL = $(shell echo $(DUT) | tr A-Z a-z)
 endif

@@ -62,7 +62,7 @@ class TB(object):
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        cocotb.fork(Clock(dut.clk, 4, units="ns").start())
+        cocotb.fork(Clock(dut.clk, 4, units="ps").start())
         self.__next_is_sop__ = False
 
         # connect TB source to DUT sink, and vice versa
@@ -111,26 +111,6 @@ class TB(object):
         self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        #self.dut.in_msg_axi_tvalid = 0
-        #self.dut.in_msg_axi_tlast  = 0
-        #self.dut.source_tvalid    = 0
-        #self.dut.source_tlast     = 0
-        #self.dut.source_tready    = 1
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
 
 async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=None, idle_inserter=None):
 
@@ -142,92 +122,23 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
     tb.log.info("Payload lengths is (16bytes cycles) %s" % payload_lengths())
     tb.log.info("Length of plaintext is (bytes): %s" % len(payload_data()))
     tb.log.info("Number of AXI transfers (handshakes): %s" % str(payload_lengths()))
-
     
     test_pkts = []
     test_frames = []
-    
-    #sink_length_ref_val = tb.dut.sink_length.value.binstr
-    #source_length_ref_val = tb.dut.source_length.value.binstr
-    '''
-    for cycle in range(payload_lengths()):
-        tb.log.info("AXI transaction # %s" % str(cycle + 1))
-        tb.log.info("cycle is %s" % cycle)
-        payload = payload_data(cycle)["plaintext"]
-        key     = payload_data(cycle)["key"]
-        tb.log.info("Payload is: %s" % payload)
-        tb.log.info("Key is: %s" % key)
-        tb.log.info("Payload type is: %s" % type(payload))
-    
-        test_pkt = bytearray(payload)
-        test_pkts.append(test_pkt)
-    
-        #sink_length_test_val = tb.dut.sink_length.value.binstr
-        #source_length_test_val = tb.dut.source_length.value.binstr
-
-        test_frame = AxiStreamFrame(test_pkt)#, tx_complete=print("COMPLETED TX EVENT"))
-        test_frames.append(test_frame)
-        tb.log.info("Test frames so far are: %s" % test_frames)
-    '''
 
     payload = bytearray(payload_data())
     key = payload_data(0)["key"]
     tb.dut.in_key = BinaryValue(value=key, n_bits=len(key) * 8)
     test_frame = AxiStreamFrame(payload)#, tx_complete=print("COMPLETED TX EVENT"))
     await tb.source.send(test_frame)
-    #await tb.source.wait()
+    await tb.source.wait()
+    await RisingEdge(tb.dut.clk)
+    await RisingEdge(tb.dut.clk)
+
     rx_frame = await tb.sink.recv()
+    for i in range(10):
+        await RisingEdge(tb.dut.clk)
 
-        #assert sink_length_ref_val == sink_length_test_val
-        #assert source_length_ref_val == source_length_test_val
-        #assert tb.source.bus.tlast.value  == 1
-        #assert tb.source.bus.tready.value == 1
-        #assert tb.source.bus.tvalid.value == 1 
-        
-    #for i in range(100):
-    #    await RisingEdge(self.dut.clk)
-
-    #tb.log.info("Waiting to receive packet on our sink.")
-    #assert not tb.sink.empty()
-    '''
-    
-    while(not tb.sink.empty()):
-        if(tb.sink.bus.tready == 1 and tb.sink.bus.tvalid == 1):
-            rx_frame = await tb.sink.recv()
-            tb.log.info("Got data from source")
-            tb.log.info("Output Payload length is: %s bytes or %s bits \n" % (str(len(rx_frame)), str(len(rx_frame) * 8)))
-            sink_length_test_val = tb.dut.sink_length.value.binstr
-            source_length_test_val = tb.dut.source_length.value.binstr
-            #assert sink_length_ref_val == sink_length_test_val
-            #assert source_length_ref_val == source_length_test_val
-            rx_pkt = bytes(rx_frame)
-        else:
-            tb.log.info("Sink not ready to recieve data")
-            await RisingEdge(tb.dut.clk)
-
-    
-    #Clean in/out buffer test
-    assert tb.source.empty()
-    assert tb.sink.empty()
-    #Expand the test a bit to see if any "trailing errors" occured
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
-    #Final test, source and sink should be ready to send and to recieve but nothing should
-    #be sent anymore since the buffers are empty.
-    assert tb.source.bus.tlast.value == 0
-    assert tb.source.bus.tready.value == 1
-    assert tb.source.bus.tvalid.value == 0
-    assert tb.sink.bus.tlast.value == 0
-    assert tb.sink.bus.tready.value == 1
-    assert tb.sink.bus.tvalid.value == 0
-    '''
 
 def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
@@ -301,7 +212,7 @@ if cocotb.SIM_NAME:
     factory = TestFactory(run_test)
     factory.add_option("payload_lengths", [payload_size_list_t1])#, payload_size_list_t2])
     factory.add_option("payload_data", [plaintext_bytearray_key_1])#, incrementing_payload_256])
-    factory.add_option("idle_inserter", [cycle_pause])#, cycle_pause])
+    factory.add_option("idle_inserter", [None])#, cycle_pause])
     factory.generate_tests()
 
 
