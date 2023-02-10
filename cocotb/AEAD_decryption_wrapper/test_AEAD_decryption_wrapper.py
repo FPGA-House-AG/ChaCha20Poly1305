@@ -136,6 +136,8 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
     await RisingEdge(tb.dut.clk)
 
     rx_frame = await tb.sink.recv()
+    rx_frame = reverse_bytearray(rx_frame.tdata)
+    print(rx_frame)
     for i in range(10):
         await RisingEdge(tb.dut.clk)
 
