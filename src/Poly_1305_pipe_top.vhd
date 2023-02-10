@@ -118,6 +118,9 @@ begin
 if rising_edge(clk) then
     shreg_s <= shreg_s(163 downto 0)&s;
     shreg_blck <= shreg_blck(163 downto 0)&('1'&order_128(Blck(127 downto 0)));
+    -- the above line fails on GHDL, possible alternative:
+    -- shreg_blck(164 downto 1) <= shreg_blck(163 downto 0);
+    -- shreg_blck(0) <= ('1'&order_128(Blck(127 downto 0)));
 end if;
 end process;
 

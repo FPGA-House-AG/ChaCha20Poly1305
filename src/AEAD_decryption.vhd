@@ -1,4 +1,4 @@
-
+--30.01.2023 - changed n_in
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
@@ -33,7 +33,7 @@ entity AEAD_decryption is
 		axi_tready_out        : in STD_LOGIC;
 ------------------------------
 -- additional ports		
-        tag_valid             : out STD_LOGIC;
+        tag_valid             : out STD_LOGIC:='0';
 		n_in                  : in  unsigned(6 downto 0)
 		);
 end AEAD_decryption;
@@ -102,10 +102,10 @@ signal n_out                    : unsigned(6 downto 0);
 signal axi_tlast_in_poly        : STD_LOGIC:='0'; 
 signal axi_tlast_in_poly1       : STD_LOGIC:='0'; 
 signal axi_tvalid_in_poly       : STD_LOGIC:='0';
-signal n_bytes                  : unsigned(15 downto 0);
+signal n_bytes,n_bytes2         : unsigned(15 downto 0);
 signal shreg_ciptext            : type_shreg_ciptext;
 signal shreg_plaintext          : type_shreg_plaintext;
-signal tag_out                  : unsigned(127 downto 0);
+signal tag_out                  : unsigned(127 downto 0):=(others=>'0');
 signal axi_tlast_poly_out       : STD_LOGIC:='0';
 signal axi_tvalid_poly_out      : STD_LOGIC:='0';
 signal axi_tlast_in_chacha      : STD_LOGIC:='0'; 
@@ -181,13 +181,13 @@ end process;
 process(clk)
 begin
 if rising_edge(clk) then
-    if cnt_valid_chacha <= (n_in-2) and axi_tvalid_in_ciptext='1' then
+    if cnt_valid_chacha <= (n_in-1) and axi_tvalid_in_ciptext='1' then
         axi_tvalid_in_chacha1 <= '1';
     else
         axi_tvalid_in_chacha1 <= '0';
     end if;
     
-    if cnt_valid_chacha = (n_in-2) and axi_tvalid_in_ciptext='1' then---
+    if cnt_valid_chacha = (n_in-1) and axi_tvalid_in_ciptext='1' then---
 	   axi_tlast_in_chacha1 <= '1';--axi_tlast_in_ciptext;
 	else
 	   axi_tlast_in_chacha1 <= '0';
@@ -220,7 +220,7 @@ if rising_edge(clk) then
     axi_tlast_in_poly <= shreg_tlast_aead(83);
 
     if shreg_tlast_aead(83) = '1' then
-        Blck <= '1'&x"0000000000000000"&n_bytes(7 downto 0)&n_bytes(15 downto 8)&x"000000000000";
+        Blck <= '1'&x"0000000000000000"&n_bytes2(7 downto 0)&n_bytes2(15 downto 8)&x"000000000000";
     else
         Blck <= '1'&shreg_ciptext(83);
     end if;
@@ -232,7 +232,8 @@ process(clk)
 begin
 if rising_edge(clk) then
 
-    n_bytes <= "00000"&n_out&"0000";
+    n_bytes <= "00000"&(n_out+1)&"0000";
+    n_bytes2 <= "00000"&(n_out)&"0000";
     n_shift_dec <= n_shift_dec(191 downto 0)&n_out;
 
 end if;
@@ -256,13 +257,13 @@ process(clk)
 begin
 if rising_edge(clk) then
     
-    if (cnt_valid_out <= n_shift_dec(192)-2) and axi_tvalid_poly_out='1' then
+    if (cnt_valid_out <= n_shift_dec(192)-1) and axi_tvalid_poly_out='1' then
         axi_tvalid_out <= '1';
     else
         axi_tvalid_out <= '0';
     end if;
     
-  if (cnt_valid_out = n_shift_dec(192)-2) and axi_tvalid_poly_out='1' then---
+  if (cnt_valid_out = n_shift_dec(192)-1) and axi_tvalid_poly_out='1' then---
 	   axi_tlast_out <= '1';
 	else
 	   axi_tlast_out <= '0';
