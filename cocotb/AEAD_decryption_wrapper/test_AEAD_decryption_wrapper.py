@@ -36,7 +36,9 @@ import itertools
 import logging
 import os
 import binascii
-
+#Quality of life import
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 #Provides standard python unit testing capabilities for cocotb. Source: https://pypi.org/project/cocotb-test/
 import cocotb_test.simulator
@@ -54,6 +56,7 @@ import sys
 sys.path.insert(0, "..")
 from BitMonitor import BitMonitor
 from AxiStreamClockedMonitor import AxiStreamClockedMonitor
+from ChaCha20_Poly1305_enc_dec import our_encryptor, our_decryptor
 
 class TB(object):
     def __init__(self, dut):
@@ -66,8 +69,6 @@ class TB(object):
         self.__next_is_sop__ = False
 
         # connect TB source to DUT sink, and vice versa
-        # byte_lanes = 16 is workaround for https://github.com/alexforencich/cocotbext-axi/issues/46
-
         self.source  = AxiStreamSource (AxiStreamBus.from_prefix(dut, "sink"), dut.clk, dut.rst, byte_lanes = 16)
         self.sink    =   AxiStreamSink (AxiStreamBus.from_prefix(dut, "source" ), dut.clk, dut.rst, byte_lanes = 16)
         
@@ -93,9 +94,6 @@ class TB(object):
         if(self.is_start_of_packet(transaction_info)):
             #This branch is the test of Start Of Packet.
             print("START OF PACKET")
-        
-        #raise TestError("TESTING IF ERROR RAISING WORKS")
-
 
     def set_idle_generator(self, generator=None):
         if generator:
@@ -115,7 +113,6 @@ class TB(object):
 async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=None, idle_inserter=None):
 
     tb = TB(dut)
-    #tb.dut.sink_length =   BinaryValue(16, n_bits = 12, bigEndian = False)
 
     await tb.reset()    
     tb.set_idle_generator(idle_inserter)
@@ -123,21 +120,24 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
     tb.log.info("Length of plaintext is (bytes): %s" % len(payload_data()))
     tb.log.info("Number of AXI transfers (handshakes): %s" % str(payload_lengths()))
     
-    test_pkts = []
-    test_frames = []
 
     payload = bytearray(payload_data())
+
     key = payload_data(0)["key"]
     tb.dut.in_key = BinaryValue(value=key, n_bits=len(key) * 8)
+
     test_frame = AxiStreamFrame(payload)#, tx_complete=print("COMPLETED TX EVENT"))
+
     await tb.source.send(test_frame)
     await tb.source.wait()
     await RisingEdge(tb.dut.clk)
     await RisingEdge(tb.dut.clk)
 
+
     rx_frame = await tb.sink.recv()
     rx_frame = reverse_bytearray(rx_frame.tdata)
-    print(rx_frame)
+    print("\n\n\n",rx_frame, "\n\n\n")
+
     for i in range(10):
         await RisingEdge(tb.dut.clk)
 
@@ -169,45 +169,39 @@ def incrementing_payload_128(length):
 
 def reverse_bytearray(byte_array):
     info = [byte_array[i : i + 16] for i in range(0, len(byte_array), 16)]
+
     for i in range(0, len(info)):
         info[i].reverse()
-    #info = bytes(info)
+
     return bytearray(b''.join(info))
 
 
 
 def plaintext_bytearray_key_1(index = None):
     
-
-    plaintext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
-    plaintext_hex+= 'a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd ' 
-    plaintext_hex+= '2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a ' 
-    plaintext_hex+= '8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
-    plaintext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 ' 
-    plaintext_hex+= 'aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 ' 
-    plaintext_hex+= '16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 ' 
-    plaintext_hex+= '20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
-    plaintext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 ' 
-    plaintext_hex+= '2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 '
-    plaintext = bytearray.fromhex(plaintext_hex)
-    
-    plaintext = reverse_bytearray(plaintext)
-
-    #print(", ".join(hex(b) for b in plaintext).replace('\\x', ' ').replace('0x', ' '))
-    #        var packet_length = 64 + 64 + 16 + 16 // bytes 128+32 = 160
-
-
-    #plaintext = b'\x4c\x61\x64\x69\x65\x73\x20\x61\x6e\x64\x20\x47\x65\x6e\x74\x6c\x65\x6d\x65\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x63\x6c\x61\x73\x73\x20\x6f\x66\x20\x27\x39\x39\x3a\x20\x49\x66\x20\x49\x20\x63\x6f\x75\x6c\x64\x20\x6f\x66\x66\x65\x72\x20\x79\x6f\x75\x20\x6f\x6e\x6c\x79\x20\x6f\x6e\x65\x20\x74\x69\x70\x20\x66\x6f\x72\x20\x74\x68\x65\x20\x66\x75\x74\x75\x72\x65\x2c\x20\x73\x75\x6e\x73\x63\x72\x65\x65\x6e\x20\x77\x6f\x75\x6c\x64\x20\x62\x65\x20\x69\x74\x2e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     key = b'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F'
-
-    #print(plaintext)
-    #return b'\x4c\x61\x64\x69\x65\x73\x20\x61\x6e\x64\x20\x47\x65\x6e\x74\x6c\x65\x6d\x65\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x63\x6c\x61\x73\x73\x20\x6f\x66\x20\x27\x39\x39\x3a\x20\x49\x66\x20\x49\x20\x63\x6f\x75\x6c\x64\x20\x6f\x66\x66\x65\x72\x20\x79\x6f\x75\x20\x6f\x6e\x6c\x79\x20\x6f\x6e\x65\x20\x74\x69\x70\x20\x66\x6f\x72\x20\x74\x68\x65\x20\x66\x75\x74\x75\x72\x65\x2c\x20\x73\x75\x6e\x73\x63\x72\x65\x65\x6e\x20\x77\x6f\x75\x6c\x64\x20\x62\x65\x20\x69\x74\x2e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    aad = ''#'50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7'
+    aad = bytearray.fromhex(aad)
+    ciphertext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
+    ciphertext_hex+= 'a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd ' 
+    ciphertext_hex+= '2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a ' 
+    ciphertext_hex+= '8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
+    ciphertext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 ' 
+    ciphertext_hex+= 'aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 ' 
+    ciphertext_hex+= '16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 ' 
+    ciphertext_hex+= '20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
+    ciphertext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 ' 
+    ciphertext_hex+= '2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 '
+    ciphertext_hex = bytearray.fromhex(ciphertext_hex)
+    
+    plaintext_hex = our_decryptor(key, ciphertext_hex[8:16], ciphertext_hex[16:], aad)
+    print("\n\n\nRESULT OF our_decryptor is:\n", plaintext_hex)
+    ciphertext_hex = reverse_bytearray(ciphertext_hex)
     if(index is not None):
         index = int(index)
-        return {"plaintext": plaintext[index*16 : index*16 + 16], "key": key}
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
     else:
-        return plaintext
-
+        return ciphertext_hex
 
 if cocotb.SIM_NAME:
 
@@ -234,14 +228,7 @@ def test_AEAD_decryption_wrapper(request):
     ]
 
     parameters = {}
-
-    #parameters['DATA_WIDTH'] = 16 * 8 #512
-    # divide by 8?
-    #parameters['KEEP_WIDTH'] = parameters['DATA_WIDTH'] / 8
-
-    #extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     extra_env = {}
-    
     sim_build = os.path.join(tests_dir, "sim_build",
         request.node.name.replace('[', '-').replace(']', ''))
 
