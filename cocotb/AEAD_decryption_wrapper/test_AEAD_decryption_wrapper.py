@@ -229,11 +229,31 @@ def test_case_3(index = None):
     else:
         return ciphertext_hex
 
+def test_case_4(index = None):
 
+    #Empty text test, zero key + zero nonce test
+    #Zero key and zero-nonce test
+    key            = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
+    header_counter = '04 00 00 80 00 00 00 01 00 00 00 00 00 00 00 00 '
+    aad            = ''
+    key            = bytes(bytearray.fromhex(key))
+    header_counter = bytearray.fromhex(header_counter)
+    aad            = bytearray.fromhex(aad)
+    plaintext      = b'\x00'*160
+
+    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+    ciphertext_hex = header_counter + ciphertext_hex + digest
+    ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+    if(index is not None):
+        index = int(index)
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+    else:
+        return ciphertext_hex
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
     factory.add_option("payload_lengths", [payload_size_1])
-    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4])
     factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
