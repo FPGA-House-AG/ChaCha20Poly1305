@@ -14,9 +14,9 @@ def our_encryptor(key, counter, plain_text, auth_text):
     cipher.update(auth_text)
     r, s, nonce = ChaCha20._derive_Poly1305_key_pair(key, counter)
     newmac = Poly1305.Poly1305_MAC(r, s, plain_text)
-    print(r.hex(' '))
-    print(s.hex(' '))
-    print(nonce.hex(' '))
+    #print(r.hex(' '))
+    #print(s.hex(' '))
+    #print(nonce.hex(' '))
     #print(newmac.hex(' '))
     cipher_text, digest = cipher.encrypt_and_digest(plain_text)
     return cipher_text, digest

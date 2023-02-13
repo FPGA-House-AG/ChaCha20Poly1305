@@ -143,29 +143,11 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
 
 
 def cycle_pause():
-    return itertools.cycle([1, 1, 1, 0])
+    return itertools.cycle([ 1, 0])
 
-
-def size_list():
-    return list(range(1, 129))
-
-def payload_size_list_t1():
+def payload_size_1():
     #here we define the payload size 160 = 16bytes * 10cycles,
     return 10
-
-def payload_size_list_t2():
-    return list(range(32, 33))
-    
-
-def header_size_list():
-    return list(range(1, 4))
-
-def incrementing_payload_256(length):
-    return bytearray(itertools.islice(itertools.cycle(range(0, 256)), length))
-
-def incrementing_payload_128(length):
-    return bytearray(itertools.islice(itertools.cycle(range(0, 128)), length))
-
 
 def reverse_bytearray(byte_array):
     info = [byte_array[i : i + 16] for i in range(0, len(byte_array), 16)]
@@ -177,9 +159,11 @@ def reverse_bytearray(byte_array):
 
 
 
-def plaintext_bytearray_key_1(index = None):
+def test_case_1(index = None):
     
-    key = b'\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F'
+    #Default test without using our_encryptor/our_decryptor, parameters of test agreed upon by the team internally. 
+    key = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
+    key = bytes(bytearray.fromhex(key))
     aad = ''#'50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7'
     aad = bytearray.fromhex(aad)
     ciphertext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
@@ -195,7 +179,6 @@ def plaintext_bytearray_key_1(index = None):
     ciphertext_hex = bytearray.fromhex(ciphertext_hex)
     
     plaintext_hex = our_decryptor(key, ciphertext_hex[8:16], ciphertext_hex[16:], aad)
-    print("\n\n\nRESULT OF our_decryptor is:\n", plaintext_hex)
     ciphertext_hex = reverse_bytearray(ciphertext_hex)
     if(index is not None):
         index = int(index)
@@ -203,12 +186,55 @@ def plaintext_bytearray_key_1(index = None):
     else:
         return ciphertext_hex
 
-if cocotb.SIM_NAME:
+def test_case_2(index = None):
 
+    #Same as test1, this time we're using our_encryptor and validating if we're decrypting the ciphertext correctly.
+    key            = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
+    header_counter = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
+    aad            = ''
+    key            = bytes(bytearray.fromhex(key))
+    header_counter = bytearray.fromhex(header_counter)
+    aad            = bytearray.fromhex(aad)
+    plaintext      = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+    ciphertext_hex = header_counter + ciphertext_hex + digest
+    ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+    if(index is not None):
+        index = int(index)
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+    else:
+        return ciphertext_hex
+
+
+def test_case_3(index = None):
+
+    #Zero key and zero-nonce test
+    key            = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
+    header_counter = '04 00 00 80 00 00 00 01 00 00 00 00 00 00 00 00 '
+    aad            = ''
+    key            = bytes(bytearray.fromhex(key))
+    header_counter = bytearray.fromhex(header_counter)
+    aad            = bytearray.fromhex(aad)
+    plaintext      = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+    ciphertext_hex = header_counter + ciphertext_hex + digest
+    ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+    if(index is not None):
+        index = int(index)
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+    else:
+        return ciphertext_hex
+
+
+if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_lengths", [payload_size_list_t1])#, payload_size_list_t2])
-    factory.add_option("payload_data", [plaintext_bytearray_key_1])#, incrementing_payload_256])
-    factory.add_option("idle_inserter", [None])#, cycle_pause])
+    factory.add_option("payload_lengths", [payload_size_1])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3])
+    factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
 
