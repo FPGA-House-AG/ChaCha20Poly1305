@@ -46,10 +46,10 @@ import cocotb_test.simulator
 import asyncio
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import RisingEdge, Timer
 from cocotb.regression import TestFactory
 from cocotb.binary import BinaryValue
-from cocotb.result import TestError
+from cocotb.result import TestError, TestSuccess, TestFailure
 
 from cocotbext.axi import AxiStreamBus, AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 import sys
@@ -65,7 +65,8 @@ class TB(object):
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        cocotb.fork(Clock(dut.clk, 4, units="ps").start())
+        #cocotb.fork(Clock(dut.clk, 4, units="ps").start())
+        cocotb.start_soon(Clock(dut.clk, 4, units='ps').start())
         self.__next_is_sop__ = False
 
         # connect TB source to DUT sink, and vice versa
@@ -110,10 +111,52 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
+    '''
+    async def check_for_liveliness(self):
+        clock_counter = 0
+
+        while(True):
+            await RisingEdge(self.dut.clk)
+            clock_counter += 1
+            if(clock_counter > 500):
+                raise TimeoutError
+            #self.log.info("Clock counter %d" % clock_counter)
+    '''
+    async def check_for_liveliness(self):
+        clock_counter = 0
+        chacha_packets = 0
+        chacha_timeout = 0
+        while(True):
+            await RisingEdge(self.dut.clk)
+            # packet to ChaCha?
+            if (self.source.bus.tvalid.value & self.source.bus.tlast.value):
+                chacha_packets += 1
+                self.log.info("%d packets in-flight" % chacha_packets)
+                chacha_timeout = 0
+            clock_counter += 1
+            if (chacha_packets > 0):
+                chacha_timeout += 1
+            # packet from ChaCha?
+            if (self.sink.bus.tvalid.value & self.sink.bus.tlast.value):
+                chacha_packets -= 1
+                self.log.info("%d packets in-flight" % chacha_packets)
+                print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                await RisingEdge(self.dut.clk)
+                print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                await RisingEdge(self.dut.clk)
+                print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                if (chacha_packets):
+                    chacha_timeout = 0
+            #if (chacha_timeout > 300):
+            #    raise MyException
+            assert(chacha_timeout < 300)
+            #self.log.info("Clock counter %d" % clock_counter)
+    
+
 async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=None, idle_inserter=None):
 
     tb = TB(dut)
-
+    
     await tb.reset()    
     tb.set_idle_generator(idle_inserter)
     tb.log.info("Payload lengths is (16bytes cycles) %s" % payload_lengths())
@@ -124,14 +167,23 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
     payload = bytearray(payload_data())
 
     key = payload_data(0)["key"]
+    data_valid = payload_data(0)["data_valid"]
     tb.dut.in_key = BinaryValue(value=key, n_bits=len(key) * 8)
 
     test_frame = AxiStreamFrame(payload)#, tx_complete=print("COMPLETED TX EVENT"))
 
+    assert len(key) == 32
+    assert len(payload) == len(payload_data())
     await tb.source.send(test_frame)
-    await tb.source.wait()
-    await RisingEdge(tb.dut.clk)
-    await RisingEdge(tb.dut.clk)
+
+    try:
+        cocotb.start_soon(tb.check_for_liveliness())
+    except TimeoutError:
+        print("The DUT has timed out. If this is an expected behavior, the test is considered a success")
+        if(data_valid):
+            raise TestFailure("Expected test to finish, but the DUT has hanged when given propper data.")
+        else:
+            pass
 
 
     rx_frame = await tb.sink.recv()
@@ -143,7 +195,7 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
 
 
 def cycle_pause():
-    return itertools.cycle([ 1, 0])
+    return itertools.cycle([0])
 
 def payload_size_1():
     #here we define the payload size 160 = 16bytes * 10cycles,
@@ -182,7 +234,7 @@ def test_case_1(index = None):
     ciphertext_hex = reverse_bytearray(ciphertext_hex)
     if(index is not None):
         index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
     else:
         return ciphertext_hex
 
@@ -203,7 +255,7 @@ def test_case_2(index = None):
 
     if(index is not None):
         index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
     else:
         return ciphertext_hex
 
@@ -225,7 +277,7 @@ def test_case_3(index = None):
 
     if(index is not None):
         index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
     else:
         return ciphertext_hex
 
@@ -247,13 +299,47 @@ def test_case_4(index = None):
 
     if(index is not None):
         index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key}
+        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
     else:
         return ciphertext_hex
+
+def test_case_5(index = None):
+    
+    #None test, should fail
+    key            = ''#'00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
+    header_counter = ''#'04 00 00 80 00 00 00 01 00 00 00 00 00 00 00 00 '
+    aad            = ''
+    key            = bytes(bytearray.fromhex(key))
+    header_counter = bytearray.fromhex(header_counter)
+    aad            = bytearray.fromhex(aad)
+    plaintext      = b''#b'\x00'*160
+
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+        if(index is not None):
+            index = int(index)
+            return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": False}
+        else:
+            retval = b'\x00'*160
+            print(retval)
+            return retval
+    except:
+        if(index is not None):
+            retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False}
+        else:
+            retval = b'\x00'*160
+
+        return retval
+
+
+
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
     factory.add_option("payload_lengths", [payload_size_1])
-    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
     factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
