@@ -34,6 +34,7 @@ entity AEAD_decryption is
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC:='0';
+        tag_pulse             : out STD_LOGIC:='0';
 		n_in                  : in  unsigned(6 downto 0)
 		);
 end AEAD_decryption;
@@ -296,6 +297,9 @@ if rising_edge(clk) then
         else
             tag_valid <= '0';
         end if;
+        tag_pulse <= '1';
+    else
+        tag_pulse <= '0';
     end if;
     
 end if;
@@ -333,4 +337,3 @@ end if;
 end process;
 
 end Behavioral;
-
