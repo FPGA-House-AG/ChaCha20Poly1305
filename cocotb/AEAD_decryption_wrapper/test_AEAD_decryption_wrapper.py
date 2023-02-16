@@ -35,7 +35,9 @@ either expressed or implied, of The Regents of the University of California.
 import itertools
 import logging
 import os
-import binascii
+import random
+import string
+from textwrap import wrap
 #Quality of life import
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -43,7 +45,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 #Provides standard python unit testing capabilities for cocotb. Source: https://pypi.org/project/cocotb-test/
 import cocotb_test.simulator
 
-import asyncio
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
@@ -65,7 +66,6 @@ class TB(object):
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        #cocotb.fork(Clock(dut.clk, 4, units="ps").start())
         cocotb.start_soon(Clock(dut.clk, 4, units='ps').start())
         self.__next_is_sop__ = False
 
@@ -111,17 +111,6 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
-    '''
-    async def check_for_liveliness(self):
-        clock_counter = 0
-
-        while(True):
-            await RisingEdge(self.dut.clk)
-            clock_counter += 1
-            if(clock_counter > 500):
-                raise TimeoutError
-            #self.log.info("Clock counter %d" % clock_counter)
-    '''
     async def check_for_liveliness(self):
         clock_counter = 0
         chacha_packets = 0
@@ -147,35 +136,32 @@ class TB(object):
                 print("TAG_VALID = %d" % self.dut.tag_valid.value)
                 if (chacha_packets):
                     chacha_timeout = 0
-            #if (chacha_timeout > 300):
-            #    raise MyException
-            assert(chacha_timeout < 300)
-            #self.log.info("Clock counter %d" % clock_counter)
-    
 
-async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=None, idle_inserter=None):
+            assert(chacha_timeout < 1500)
+
+
+async def run_test(dut, payload_data=None, idle_inserter=None):
 
     tb = TB(dut)
     
     await tb.reset()    
     tb.set_idle_generator(idle_inserter)
-    tb.log.info("Payload lengths is (16bytes cycles) %s" % payload_lengths())
-    tb.log.info("Length of plaintext is (bytes): %s" % len(payload_data()))
-    tb.log.info("Number of AXI transfers (handshakes): %s" % str(payload_lengths()))
-    
+    payload_dict    = payload_data()
+    payload         = payload_dict["ciphertext"]
+    printout        = ''.join(' {:02x}'.format(x) for x in payload)
+    printout        = wrap(printout, 48)
+    plaintext       = payload_dict["plaintext"]
 
-    payload = bytearray(payload_data())
+    key             = payload_dict["key"]
+    data_valid      = payload_dict["data_valid"]
+    tb.dut.in_key   = BinaryValue(value=key, n_bits=len(key) * 8)
 
-    key = payload_data(0)["key"]
-    data_valid = payload_data(0)["data_valid"]
-    tb.dut.in_key = BinaryValue(value=key, n_bits=len(key) * 8)
 
-    test_frame = AxiStreamFrame(payload)#, tx_complete=print("COMPLETED TX EVENT"))
-
+    test_frame      = AxiStreamFrame(payload)
     assert len(key) == 32
-    assert len(payload) == len(payload_data())
-    await tb.source.send(test_frame)
 
+    await tb.source.send(test_frame)
+    
     try:
         cocotb.start_soon(tb.check_for_liveliness())
     except TimeoutError:
@@ -185,21 +171,16 @@ async def run_test(dut, payload_lengths=None, payload_data=None, header_lengths=
         else:
             pass
 
-
-    rx_frame = await tb.sink.recv()
-    rx_frame = reverse_bytearray(rx_frame.tdata)
-    print("\n\n\n",rx_frame, "\n\n\n")
+    rx_frame        = await tb.sink.recv()
+    rx_frame        = reverse_bytearray(rx_frame.tdata)
+    
+    assert rx_frame == plaintext
 
     for i in range(10):
         await RisingEdge(tb.dut.clk)
 
-
 def cycle_pause():
     return itertools.cycle([0])
-
-def payload_size_1():
-    #here we define the payload size 160 = 16bytes * 10cycles,
-    return 10
 
 def reverse_bytearray(byte_array):
     info = [byte_array[i : i + 16] for i in range(0, len(byte_array), 16)]
@@ -211,10 +192,11 @@ def reverse_bytearray(byte_array):
 
 
 
-def test_case_1(index = None):
+def test_case_1():
     
     #Default test without using our_encryptor/our_decryptor, parameters of test agreed upon by the team internally. 
     key = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
+    plaintext = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     key = bytes(bytearray.fromhex(key))
     aad = ''#'50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7'
     aad = bytearray.fromhex(aad)
@@ -232,13 +214,10 @@ def test_case_1(index = None):
     
     plaintext_hex = our_decryptor(key, ciphertext_hex[8:16], ciphertext_hex[16:], aad)
     ciphertext_hex = reverse_bytearray(ciphertext_hex)
-    if(index is not None):
-        index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
-    else:
-        return ciphertext_hex
-
-def test_case_2(index = None):
+    
+    return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext" :  plaintext}
+    
+def test_case_2():
 
     #Same as test1, this time we're using our_encryptor and validating if we're decrypting the ciphertext correctly.
     key            = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
@@ -249,18 +228,15 @@ def test_case_2(index = None):
     aad            = bytearray.fromhex(aad)
     plaintext      = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-    ciphertext_hex = header_counter + ciphertext_hex + digest
-    ciphertext_hex = reverse_bytearray(ciphertext_hex)
-
-    if(index is not None):
-        index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
-    else:
-        return ciphertext_hex
-
-
-def test_case_3(index = None):
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
+    except:
+        return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
+        
+def test_case_3():
 
     #Zero key and zero-nonce test
     key            = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
@@ -271,17 +247,17 @@ def test_case_3(index = None):
     aad            = bytearray.fromhex(aad)
     plaintext      = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-    ciphertext_hex = header_counter + ciphertext_hex + digest
-    ciphertext_hex = reverse_bytearray(ciphertext_hex)
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
 
-    if(index is not None):
-        index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
-    else:
-        return ciphertext_hex
+    except:
+        retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
+        return retval
 
-def test_case_4(index = None):
+def test_case_4():
 
     #Empty text test, zero key + zero nonce test
     #Zero key and zero-nonce test
@@ -293,17 +269,17 @@ def test_case_4(index = None):
     aad            = bytearray.fromhex(aad)
     plaintext      = b'\x00'*160
 
-    ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-    ciphertext_hex = header_counter + ciphertext_hex + digest
-    ciphertext_hex = reverse_bytearray(ciphertext_hex)
 
-    if(index is not None):
-        index = int(index)
-        return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": True}
-    else:
-        return ciphertext_hex
-
-def test_case_5(index = None):
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
+        
+    except:
+        return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
+        
+def test_case_5():
     
     #None test, should fail
     key            = ''#'00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
@@ -312,43 +288,65 @@ def test_case_5(index = None):
     key            = bytes(bytearray.fromhex(key))
     header_counter = bytearray.fromhex(header_counter)
     aad            = bytearray.fromhex(aad)
-    plaintext      = b''#b'\x00'*160
+    plaintext      = b''
 
     try:
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
         ciphertext_hex = header_counter + ciphertext_hex + digest
         ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
 
-        if(index is not None):
-            index = int(index)
-            return {"ciphertext": ciphertext_hex[index*16 : index*16 + 16], "key": key, "data_valid": False}
-        else:
-            retval = b'\x00'*160
-            print(retval)
-            return retval
     except:
-        if(index is not None):
-            retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False}
-        else:
-            retval = b'\x00'*160
+        return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
 
+def test_case_6():
+
+    #Large ammount of data test   
+    key               = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
+    header_counter    = '04 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 '
+    aad               = ''
+    key               = bytes(bytearray.fromhex(key))
+    aad               = bytearray.fromhex(aad)
+    plaintext_length  = random.randint(1, 1504)
+    plaintext         = bytearray(bytes(''.join(random.choice(string.ascii_letters + string.punctuation + string.whitespace + string.digits) for i in range(plaintext_length)), 'utf-8'))
+    
+    
+
+    assert len(plaintext) == plaintext_length
+    while len(plaintext) % 16 != 0:
+        plaintext.append(0)
+
+    hex_number        = int(len(plaintext) /16)
+    hex_number        = format(hex_number, 'x')
+
+    if(len(hex_number) < 2):
+        hex_number = '0' + hex_number
+    
+    if(len(hex_number) > 2):
+        header_counter = header_counter[0:7] + hex_number[0] + ' ' + hex_number[1:] + header_counter[11:]
+    else:
+        header_counter = header_counter[0:7] + hex_number[0] + ' ' + hex_number[1] + '0' + header_counter[11:]
+
+    header_counter     = bytearray.fromhex(header_counter)
+
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
+
+    except:
+        retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         return retval
-
-
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_lengths", [payload_size_1])
-    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
+    factory.add_option("payload_data",  [test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
     factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
-
-# cocotb-test
 tests_dir = os.path.dirname(__file__)
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..'))
-
-
 
 def test_AEAD_decryption_wrapper(request):
     dut = "AEAD_decryption_wrapper"
