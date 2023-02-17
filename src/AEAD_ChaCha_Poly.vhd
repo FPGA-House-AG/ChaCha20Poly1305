@@ -40,8 +40,9 @@ package bus_pkg1 is
     type type_shreg_plaintext  is array (199 downto 0) of unsigned(127 downto 0);
     type type_shreg_tvalid_aead is array (83 downto 0) of STD_LOGIC;
     type type_shreg_tlast_aead is array (83 downto 0) of STD_LOGIC;
-    type type_n_shift_dec  is array (192 downto 0) of unsigned(6 downto 0);
+    type type_n_shift_dec  is array (193 downto 0) of unsigned(6 downto 0);
 
+    type type_shreg_header  is array (277 downto 0) of unsigned(127 downto 0);
 
 
 end package;
@@ -64,16 +65,16 @@ entity AEAD_ChaCha_Poly is
 		axi_tready_in_msg    : out STD_LOGIC:='1';
 -----------------------------
 --  axi_st_in_key
-		axi_tvalid_in_key    : in  STD_LOGIC;
-		axi_tlast_in_key     : in  STD_LOGIC;
+--		axi_tvalid_in_key    : in  STD_LOGIC;
+--		axi_tlast_in_key     : in  STD_LOGIC;
 		axi_tdata_in_key     : in  UNSIGNED(255 downto 0);
-		axi_tready_in_key    : out STD_LOGIC;
+--		axi_tready_in_key    : out STD_LOGIC;
 ------------------------------
 --  axi_st_in_nonce
 		axi_tvalid_in_nonce    : in  STD_LOGIC;
 		axi_tlast_in_nonce     : in  STD_LOGIC;
 		axi_tdata_in_nonce     : in  UNSIGNED(95 downto 0);
-		axi_tready_in_nonce    : out STD_LOGIC;
+--		axi_tready_in_nonce    : out STD_LOGIC;
 ------------------------------
 --  axi_st_out
 		axi_tvalid_out    : out  STD_LOGIC;
@@ -82,8 +83,8 @@ entity AEAD_ChaCha_Poly is
 		axi_tready_out    : in STD_LOGIC;
 ------------------------------
 -- additional ports		
-		n_in              : in  unsigned(6 downto 0); --- to be calculated before or during chacha20
-        counter           : in  unsigned(31 downto 0)----to be deleted. for 29_08 calculates inside the algorithm
+		n_in              : in  unsigned(6 downto 0)--; --- to be calculated before or during chacha20
+--        counter           : in  unsigned(31 downto 0)----to be deleted. for 29_08 calculates inside the algorithm
 ----------------------------
         );
 end AEAD_ChaCha_Poly;
@@ -155,7 +156,7 @@ signal n_out                  : unsigned(6 downto 0);
 signal axi_tlast_in_poly     : STD_LOGIC:='0'; 
 signal axi_tlast_in_poly1     : STD_LOGIC:='0'; 
 signal axi_tvalid_in_poly    : STD_LOGIC:='0';
-signal n_bytes               : unsigned(15 downto 0);
+signal n_bytes,n_bytes2               : unsigned(15 downto 0);
 
 begin
 
@@ -210,7 +211,7 @@ if rising_edge(clk) then
     axi_tlast_in_poly <= axi_tlast_in_poly1;
     
     if axi_tlast_in_poly1 = '1' then
-        Blck <= '1'&x"0000000000000000"&n_bytes(7 downto 0)&n_bytes(15 downto 8)&x"000000000000";
+        Blck <= '1'&x"0000000000000000"&n_bytes2(7 downto 0)&n_bytes2(15 downto 8)&x"000000000000";
     else
         Blck <= '1'&ChaCha_data_out;
     end if;
@@ -218,20 +219,19 @@ if rising_edge(clk) then
 end if;
 end process;
 
---n_bytes <= "00000"&n_out&"0000";
-
 process(clk)
 begin
 if rising_edge(clk) then
-    n_bytes <= "00000"&n_out&"0000";
+    n_bytes <= "00000"&(n_out+1)&"0000";
+    n_bytes2 <= "00000"&(n_out)&"0000";
 end if;
 end process;
-
+----shift n_out throught Poly and output it together with
 --n_counter:process(clk)
 --begin
 --if rising_edge(clk) then
 ----shift register for n_cnt
---    shreg_n_cnt <= shreg_n_cnt(80 downto 0)&n_in;
+--    shreg_n_cnt <= shreg_n_cnt(80 downto 0)&n_out;
 
 --end if;
 --end process;
@@ -241,7 +241,7 @@ begin
 if rising_edge(clk) then
     if axi_tlast_in_msg = '1' then
         counter1 <= (others => '0');
-    elsif axi_tlast_in_key='1' or axi_tlast_in_nonce='1' then
+    elsif axi_tlast_in_nonce='1' then--axi_tlast_in_key='1' or 
         counter1 <= x"00000001";
         cnt_valid <= 0;
     elsif axi_tvalid_in_msg = '1' then
@@ -256,34 +256,13 @@ if rising_edge(clk) then
 end if;
 end process;
 
-
-
-
-
-key_routine:process(clk)
-begin
-if rising_edge(clk) then
-
-end if;
-end process;
-
-FSM:process(clk)
-begin
-if rising_edge(clk) then
-
-end if;
-end process;
-
 r_s_storage:process(clk)---must add preparing r and s (reversing and clamping)
 begin
 if rising_edge(clk) then
 
     if r_s_ready='1' then
         r_ordered <= r and x"0ffffffc0ffffffc0ffffffc0fffffff";--order_128(r);
-        s_ordered <= s;--order_128(s);
---    else
---        r_ordered <= r_ordered;
---        s_ordered <= s_ordered;
+        s_ordered <= s;
     end if;
 end if;
 end process;
