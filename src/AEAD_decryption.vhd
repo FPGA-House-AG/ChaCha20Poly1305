@@ -34,6 +34,7 @@ entity AEAD_decryption is
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC:='0';
+        tag_pulse             : out STD_LOGIC:='0';
 		n_in                  : in  unsigned(6 downto 0)
 		);
 end AEAD_decryption;
@@ -102,15 +103,15 @@ signal n_out                    : unsigned(6 downto 0);
 signal axi_tlast_in_poly        : STD_LOGIC:='0'; 
 signal axi_tlast_in_poly1       : STD_LOGIC:='0'; 
 signal axi_tvalid_in_poly       : STD_LOGIC:='0';
-signal n_bytes,n_bytes2         : unsigned(15 downto 0);
+signal n_bytes,n_bytes2                  : unsigned(15 downto 0);
 signal shreg_ciptext            : type_shreg_ciptext;
 signal shreg_plaintext          : type_shreg_plaintext;
 signal tag_out                  : unsigned(127 downto 0):=(others=>'0');
 signal axi_tlast_poly_out       : STD_LOGIC:='0';
 signal axi_tvalid_poly_out      : STD_LOGIC:='0';
-signal axi_tlast_in_chacha      : STD_LOGIC:='0'; 
+--signal axi_tlast_in_chacha      : STD_LOGIC:='0'; 
 signal axi_tlast_in_chacha1     : STD_LOGIC:='0'; 
-signal axi_tvalid_in_chacha     : STD_LOGIC:='0';
+--signal axi_tvalid_in_chacha     : STD_LOGIC:='0';
 signal axi_tvalid_in_chacha1    : STD_LOGIC:='0';
 signal axi_tdata_in_chacha1     : unsigned(127 downto 0);
 signal cnt_valid_chacha         : natural range 0 to 2000:=0;
@@ -181,17 +182,26 @@ end process;
 process(clk)
 begin
 if rising_edge(clk) then
-    if cnt_valid_chacha <= (n_in-1) and axi_tvalid_in_ciptext='1' then
+
+--    if n_in=0 then
+        
+--    else
+--        n_shift_dec <= n_shift_dec(192 downto 0)&(n_out);
+--    end if;
+    
+    if (cnt_valid_chacha <= (n_in-1) or n_in=0) and axi_tvalid_in_ciptext='1' then----less or equal
         axi_tvalid_in_chacha1 <= '1';
     else
         axi_tvalid_in_chacha1 <= '0';
     end if;
     
-    if cnt_valid_chacha = (n_in-1) and axi_tvalid_in_ciptext='1' then---
-	   axi_tlast_in_chacha1 <= '1';--axi_tlast_in_ciptext;
+    if (cnt_valid_chacha = (n_in-1) or n_in=0) and axi_tvalid_in_ciptext='1' then---
+	   axi_tlast_in_chacha1 <= '1';
 	else
 	   axi_tlast_in_chacha1 <= '0';
 	end if;
+	
+	
 	axi_tdata_in_chacha1 <= axi_tdata_in_ciptext;
 end if;
 end process;
@@ -234,8 +244,11 @@ if rising_edge(clk) then
 
     n_bytes <= "00000"&(n_out+1)&"0000";
     n_bytes2 <= "00000"&(n_out)&"0000";
-    n_shift_dec <= n_shift_dec(191 downto 0)&n_out;
-
+    if n_out=0 then
+        n_shift_dec <= n_shift_dec(192 downto 0)&("0000001");
+    else
+        n_shift_dec <= n_shift_dec(192 downto 0)&(n_out);
+    end if;
 end if;
 end process;
 
@@ -257,13 +270,13 @@ process(clk)
 begin
 if rising_edge(clk) then
     
-    if (cnt_valid_out <= n_shift_dec(192)-1) and axi_tvalid_poly_out='1' then
+    if (cnt_valid_out <= n_shift_dec(193)-1) and axi_tvalid_poly_out='1' then----less or equal
         axi_tvalid_out <= '1';
     else
         axi_tvalid_out <= '0';
     end if;
     
-  if (cnt_valid_out = n_shift_dec(192)-1) and axi_tvalid_poly_out='1' then---
+  if (cnt_valid_out = n_shift_dec(193)-1) and axi_tvalid_poly_out='1' then---
 	   axi_tlast_out <= '1';
 	else
 	   axi_tlast_out <= '0';
@@ -284,9 +297,11 @@ if rising_edge(clk) then
         else
             tag_valid <= '0';
         end if;
+        tag_pulse <= '1';
     else
-        tag_valid <= '0';
+        tag_pulse <= '0';
     end if;
+    
 end if;
 end process;
 
@@ -322,4 +337,3 @@ end if;
 end process;
 
 end Behavioral;
-
