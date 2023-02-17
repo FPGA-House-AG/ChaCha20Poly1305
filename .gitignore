@@ -15,3 +15,5 @@ sim_build
 #Any waveform files are to be ignored
 *.fst
 *.fst.hier
+#Save the Makefiles
+!Makefile
