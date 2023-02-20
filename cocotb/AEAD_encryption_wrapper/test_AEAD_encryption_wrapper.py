@@ -141,29 +141,33 @@ class TB(object):
 
 
 async def run_test(dut, payload_data=None, idle_inserter=None):
-    '''
+    
     tb = TB(dut)
     
-    await tb.reset()    
+    await tb.reset()   
+
+    for i in range(20):
+        await RisingEdge(tb.dut.clk)
+
     tb.set_idle_generator(idle_inserter)
+    
     payload_dict    = payload_data()
-    payload         = payload_dict["ciphertext"]
-    printout        = ''.join(' {:02x}'.format(x) for x in payload)
-    printout        = wrap(printout, 48)
-    plaintext       = payload_dict["plaintext"]
+    payload         = payload_dict["plaintext"]
+    ciphertext      = payload_dict["ciphertext"]
 
     key             = payload_dict["key"]
     data_valid      = payload_dict["data_valid"]
     tb.dut.in_key   = BinaryValue(value=key, n_bits=len(key) * 8)
 
-
+    
     test_frame      = AxiStreamFrame(payload)
     assert len(key) == 32
-
+    
     await tb.source.send(test_frame)
     
     try:
-        cocotb.start_soon(tb.check_for_liveliness())
+        #cocotb.start_soon(tb.check_for_liveliness())
+        pass
     except TimeoutError:
         print("The DUT has timed out. If this is an expected behavior, the test is considered a success")
         if(data_valid):
@@ -172,13 +176,11 @@ async def run_test(dut, payload_data=None, idle_inserter=None):
             pass
 
     rx_frame        = await tb.sink.recv()
-    rx_frame        = reverse_bytearray(rx_frame.tdata)
-    
-    assert rx_frame == plaintext
+    assert rx_frame.tdata == ciphertext[16:]
 
     for i in range(10):
         await RisingEdge(tb.dut.clk)
-    '''
+    
     pass
 
 def cycle_pause():
@@ -222,8 +224,8 @@ def test_case_1():
 def test_case_2():
 
     #Same as test1, this time we're using our_encryptor and validating if we're decrypting the ciphertext correctly.
-    key            = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
-    header_counter = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
+    key            = '00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f '
+    header_counter = '04 00 00 80 00 00 00 01 00 00 00 00 00 00 00 00 '
     aad            = ''
     key            = bytes(bytearray.fromhex(key))
     header_counter = bytearray.fromhex(header_counter)
@@ -232,9 +234,13 @@ def test_case_2():
 
     try:
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-        ciphertext_hex = header_counter + ciphertext_hex + digest
-        ciphertext_hex = reverse_bytearray(ciphertext_hex)
-        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
+        ciphertext_hex         = header_counter + ciphertext_hex + digest
+        ciphertext_hex         = reverse_bytearray(ciphertext_hex)
+
+        plaintext              = header_counter + plaintext
+        plaintext              = reverse_bytearray(plaintext)
+
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
     except:
         return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         
@@ -335,6 +341,9 @@ def test_case_6():
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
         ciphertext_hex = header_counter + ciphertext_hex + digest
         ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+        plaintext       = header_counter + plaintext
+        plaintext       = reverse_bytearray(plaintext)
         return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
 
     except:
@@ -343,7 +352,7 @@ def test_case_6():
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data",  [None])#test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
+    factory.add_option("payload_data",  [test_case_2, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6])#, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
     factory.add_option("idle_inserter", [None])#, cycle_pause])
     factory.generate_tests()
 
