@@ -126,17 +126,19 @@ class TB(object):
             if (chacha_packets > 0):
                 chacha_timeout += 1
             # packet from ChaCha?
-            if (self.sink.bus.tvalid.value & self.sink.bus.tlast.value):
-                chacha_packets -= 1
-                self.log.info("%d packets in-flight" % chacha_packets)
-                print("TAG_VALID = %d" % self.dut.tag_valid.value)
-                await RisingEdge(self.dut.clk)
-                print("TAG_VALID = %d" % self.dut.tag_valid.value)
-                await RisingEdge(self.dut.clk)
-                print("TAG_VALID = %d" % self.dut.tag_valid.value)
-                if (chacha_packets):
-                    chacha_timeout = 0
-
+            try:
+                if (self.sink.bus.tvalid.value & self.sink.bus.tlast.value):
+                    chacha_packets -= 1
+                    self.log.info("%d packets in-flight" % chacha_packets)
+                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    await RisingEdge(self.dut.clk)
+                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    await RisingEdge(self.dut.clk)
+                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    if (chacha_packets):
+                        chacha_timeout = 0
+            except:
+                pass 
             assert(chacha_timeout < 1500)
 
 
@@ -166,8 +168,7 @@ async def run_test(dut, payload_data=None, idle_inserter=None):
     await tb.source.send(test_frame)
     
     try:
-        #cocotb.start_soon(tb.check_for_liveliness())
-        pass
+        cocotb.start_soon(tb.check_for_liveliness())
     except TimeoutError:
         print("The DUT has timed out. If this is an expected behavior, the test is considered a success")
         if(data_valid):
@@ -352,7 +353,7 @@ def test_case_6():
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data",  [test_case_2, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6])#, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
+    factory.add_option("payload_data",  [test_case_2, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6])#, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
     factory.add_option("idle_inserter", [None])#, cycle_pause])
     factory.generate_tests()
 
