@@ -36,6 +36,7 @@ import itertools
 import logging
 import os
 import random
+import re
 import string
 from textwrap import wrap
 #Quality of life import
@@ -196,33 +197,17 @@ def reverse_bytearray(byte_array):
     return bytearray(b''.join(info))
 
 
+hex_chars = "0123456789abcdef"
+seed      = 0
+
+def replace(match):
+    global seed
+    index = match.start()
+    random.seed(seed + index)
+    return ''.join([random.choice(hex_chars) for _ in range(2)])
+
 
 def test_case_1():
-    
-    #Default test without using our_encryptor/our_decryptor, parameters of test agreed upon by the team internally. 
-    key = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
-    plaintext = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-    key = bytes(bytearray.fromhex(key))
-    aad = ''#'50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7'
-    aad = bytearray.fromhex(aad)
-    ciphertext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
-    ciphertext_hex+= 'a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd ' 
-    ciphertext_hex+= '2f bc 73 30 b8 be 55 eb 2d 8d c1 8a aa 51 d6 6a ' 
-    ciphertext_hex+= '8e c1 f8 d3 61 9a 25 8d b0 ac 56 95 60 15 b7 b4 ' 
-    ciphertext_hex+= '93 7e 9b 8e 6a a9 57 b3 dc 02 14 d8 03 d7 76 60 ' 
-    ciphertext_hex+= 'aa bc 91 30 92 97 1d a8 f2 07 17 1c e7 84 36 08 ' 
-    ciphertext_hex+= '16 2e 2e 75 9d 8e fc 25 d8 d0 93 69 90 af 63 c8 ' 
-    ciphertext_hex+= '20 ba 87 e8 a9 55 b5 c8 27 4e f7 d1 0f 6f af d0 ' 
-    ciphertext_hex+= '46 47 1b 14 57 76 ac a2 f7 cf 6a 61 d2 16 64 25 ' 
-    ciphertext_hex+= '2f b1 f5 ba d2 ee 98 e9 64 8b b1 7f 43 2d cc e4 '
-    ciphertext_hex = bytearray.fromhex(ciphertext_hex)
-    
-    plaintext_hex = our_decryptor(key, ciphertext_hex[8:16], ciphertext_hex[16:], aad)
-    ciphertext_hex = reverse_bytearray(ciphertext_hex)
-    
-    return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext" :  plaintext}
-    
-def test_case_2():
 
     #Same as test1, this time we're using our_encryptor and validating if we're decrypting the ciphertext correctly.
     key            = '00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f '
@@ -245,7 +230,7 @@ def test_case_2():
     except:
         return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         
-def test_case_3():
+def test_case_2():
 
     #Zero key and zero-nonce test
     key            = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
@@ -258,15 +243,18 @@ def test_case_3():
 
     try:
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-        ciphertext_hex = header_counter + ciphertext_hex + digest
-        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        ciphertext_hex         = header_counter + ciphertext_hex + digest
+        ciphertext_hex         = reverse_bytearray(ciphertext_hex)
+
+        plaintext              = header_counter + plaintext
+        plaintext              = reverse_bytearray(plaintext)
         return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
 
     except:
         retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         return retval
 
-def test_case_4():
+def test_case_3():
 
     #Empty text test, zero key + zero nonce test
     #Zero key and zero-nonce test
@@ -276,19 +264,22 @@ def test_case_4():
     key            = bytes(bytearray.fromhex(key))
     header_counter = bytearray.fromhex(header_counter)
     aad            = bytearray.fromhex(aad)
-    plaintext      = b'\x00'*160
+    plaintext      = b'\x00'*128
 
 
     try:
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-        ciphertext_hex = header_counter + ciphertext_hex + digest
-        ciphertext_hex = reverse_bytearray(ciphertext_hex)
-        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
+        ciphertext_hex         = header_counter + ciphertext_hex + digest
+        ciphertext_hex         = reverse_bytearray(ciphertext_hex)
+
+        plaintext              = header_counter + plaintext
+        plaintext              = reverse_bytearray(plaintext)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
         
     except:
         return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         
-def test_case_5():
+def test_case_4():
     
     #None test, should fail
     key            = ''#'00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
@@ -301,14 +292,18 @@ def test_case_5():
 
     try:
         ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
-        ciphertext_hex = header_counter + ciphertext_hex + digest
-        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+        ciphertext_hex         = header_counter + ciphertext_hex + digest
+        ciphertext_hex         = reverse_bytearray(ciphertext_hex)
+
+        plaintext              = header_counter + plaintext
+        plaintext              = reverse_bytearray(plaintext)
+
         return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
 
     except:
         return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
 
-def test_case_6():
+def test_case_5():
 
     #Large ammount of data test   
     key               = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
@@ -351,10 +346,57 @@ def test_case_6():
         retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
         return retval
 
+def test_case_6():
+    #Completely randomized data test
+    
+    global seed
+    seed = random.randint(0, 10000)
+    print('\n\n\n RANDOM SEED FOR THIS TEST IS', str(seed), '\n\n\n')
+
+    key               = bytes(''.join(random.choice(string.ascii_letters + string.punctuation + string.whitespace + string.digits) for i in range(32)), 'utf-8') 
+    header_counter    = '04 XX XX XX XX XX XX 01 XX XX XX XX XX XX XX XX '
+    header_counter    = re.sub(r"XX", replace, header_counter)
+    aad               = ''
+    aad               = bytearray.fromhex(aad)
+    plaintext_length  = random.randint(1, 1504)
+    plaintext         = bytearray(bytes(''.join(random.choice(string.ascii_letters + string.punctuation + string.whitespace + string.digits) for i in range(plaintext_length)), 'utf-8'))
+    
+
+    assert len(plaintext) == plaintext_length
+    while len(plaintext) % 16 != 0:
+        plaintext.append(0)
+
+    hex_number        = int(len(plaintext) /16)
+    hex_number        = format(hex_number, 'x')
+
+    if(len(hex_number) < 2):
+        hex_number = '0' + hex_number
+    
+    if(len(hex_number) > 2):
+        header_counter = header_counter[0:7] + hex_number[0] + ' ' + hex_number[1:] + header_counter[11:]
+    else:
+        header_counter = header_counter[0:7] + hex_number[0] + ' ' + hex_number[1] + '0' + header_counter[11:]
+
+    header_counter     = bytearray.fromhex(header_counter)
+
+    try:
+        ciphertext_hex, digest = our_encryptor(key, header_counter[8:], plaintext, aad)
+        ciphertext_hex = header_counter + ciphertext_hex + digest
+        ciphertext_hex = reverse_bytearray(ciphertext_hex)
+
+        plaintext       = header_counter + plaintext
+        plaintext       = reverse_bytearray(plaintext)
+        return {"ciphertext": ciphertext_hex, "key": key, "data_valid": True, "plaintext": plaintext}
+
+    except:
+        retval = {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
+        return retval
+
+
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data",  [test_case_2, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6])#, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
-    factory.add_option("idle_inserter", [None])#, cycle_pause])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_5] + [test_case_6]*46 )#, test_case_2, test_case_3, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5])
+    factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
 tests_dir = os.path.dirname(__file__)
