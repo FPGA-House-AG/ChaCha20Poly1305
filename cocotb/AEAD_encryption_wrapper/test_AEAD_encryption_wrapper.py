@@ -112,7 +112,7 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
-    async def check_for_liveliness(self):
+    async def check_for_liveliness(self, packet_length):
         clock_counter = 0
         chacha_packets = 0
         chacha_timeout = 0
@@ -126,21 +126,26 @@ class TB(object):
             clock_counter += 1
             if (chacha_packets > 0):
                 chacha_timeout += 1
-            # packet from ChaCha?
-            try:
+            # is sink ready ?
+            if 'U' in self.sink.bus.tvalid.value.binstr or 'U' in self.sink.bus.tlast.value.binstr:
+                #print("SINK NOT READY")
+                chacha_timeout += 1
+            elif 'X' in self.sink.bus.tvalid.value.binstr or 'X' in self.sink.bus.tlast.value.binstr:
+                chacha_timeout += 1
+            else:
+                # packet from ChaCha?
                 if (self.sink.bus.tvalid.value & self.sink.bus.tlast.value):
                     chacha_packets -= 1
                     self.log.info("%d packets in-flight" % chacha_packets)
-                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    #print("TAG_VALID = %d" % self.dut.tag_valid.value)
                     await RisingEdge(self.dut.clk)
-                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    #print("TAG_VALID = %d" % self.dut.tag_valid.value)
                     await RisingEdge(self.dut.clk)
-                    print("TAG_VALID = %d" % self.dut.tag_valid.value)
+                    #print("TAG_VALID = %d" % self.dut.tag_valid.value)
                     if (chacha_packets):
                         chacha_timeout = 0
-            except:
-                pass 
-            assert(chacha_timeout < 1500)
+                        
+            assert(chacha_timeout < packet_length * 10)
 
 
 async def run_test(dut, payload_data=None, idle_inserter=None):
@@ -169,18 +174,19 @@ async def run_test(dut, payload_data=None, idle_inserter=None):
     await tb.source.send(test_frame)
     
     try:
-        cocotb.start_soon(tb.check_for_liveliness())
-    except TimeoutError:
+        coro        = cocotb.start_soon(tb.check_for_liveliness(len(payload)))
+        print("Started liveliness test")
+        rx_frame    = await tb.sink.recv()
+        assert rx_frame.tdata == ciphertext[16:]
+    except:
         print("The DUT has timed out. If this is an expected behavior, the test is considered a success")
+        rx_frame    = b''
         if(data_valid):
             raise TestFailure("Expected test to finish, but the DUT has hanged when given propper data.")
         else:
             pass
-
-    rx_frame        = await tb.sink.recv()
-    assert rx_frame.tdata == ciphertext[16:]
-
-    for i in range(10):
+    coro.cancel()
+    for i in range(20):
         await RisingEdge(tb.dut.clk)
     
     pass
@@ -395,7 +401,7 @@ def test_case_6():
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_5] + [test_case_6]*46 )#, test_case_2, test_case_3, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4, test_case_5] + [test_case_6]*45 )#, test_case_2, test_case_3, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5])
     factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
