@@ -23,7 +23,6 @@ default:
 # List of stages for jobs, and their order of execution, these run sequential
 stages:
   - test
-  - deploy
 
 # Multiple jobs within same stage run in parallel
 unit-test-job:   # This job runs in the test stage.
@@ -36,10 +35,3 @@ unit-test-job:   # This job runs in the test stage.
     - cd ../AEAD_decryption_wrapper
     - make
     - echo "Finished Decryptor tests"
-
-deploy-job:      # This job runs in the deploy stage.
-  stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
-  environment: production
-  script:
-    - echo "Deploying application..."
-    - echo "Application successfully deployed."
