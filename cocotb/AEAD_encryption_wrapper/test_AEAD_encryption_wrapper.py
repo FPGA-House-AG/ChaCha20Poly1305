@@ -401,8 +401,8 @@ def test_case_6():
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data", [test_case_6]*2 )#, test_case_2, test_case_3, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5, test_case_5])
-    factory.add_option("idle_inserter", [None])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4, test_case_5] + [test_case_6]*45 )
+    factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
 tests_dir = os.path.dirname(__file__)

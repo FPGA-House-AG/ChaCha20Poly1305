@@ -42,10 +42,6 @@ DUTDIR   = ../../src
 ifeq ($(TOPLEVEL_LANG), verilog)
 VERILOG_SOURCES += $(DUTDIR)/$(DUT).v
 else ifeq ($(TOPLEVEL_LANG), vhdl)
-#VHDL_SOURCES += $(DUTDIR)/$(DUT).vhd
-#VHDL_SOURCES += $(DUTDIR)/AEAD_ChaCha_Poly.vhd
-#VHDL_SOURCES += $(DUTDIR)/AEAD_decryption.vhd
-#VHDL_SOURCES += $(DUTDIR)/AEAD_decryption_top.vhd
 VHDL_SOURCES += $(DUTDIR)/*.vhd
 
 TOPLEVEL = $(shell echo $(DUT) | tr A-Z a-z)
@@ -77,12 +73,6 @@ ifeq ($(TOPLEVEL_LANG), verilog)
 		endif
 	endif
 else ifeq ($(TOPLEVEL_LANG), vhdl)
-    # ifneq ($(filter $(SIM),ghdl questa modelsim riviera activehdl),)
-    #     # ghdl, questa, and aldec all use SIM_ARGS with '-g' for setting generics
-    #     SIM_ARGS += -gDATA_WIDTH=$(DATA_WIDTH) -gA_ROWS=$(A_ROWS) -gB_COLUMNS=$(B_COLUMNS) -gA_COLUMNS_B_ROWS=$(A_COLUMNS_B_ROWS)
-    # else ifneq ($(filter $(SIM),ius xcelium),)
-    #     SIM_ARGS += -generic "matrix_multiplier:DATA_WIDTH=>$(DATA_WIDTH)" -generic "matrix_multiplier:A_ROWS=>$(A_ROWS)" -generic "matrix_multiplier:B_COLUMNS=>$(B_COLUMNS)" -generic "matrix_multiplier:A_COLUMNS_B_ROWS=>$(A_COLUMNS_B_ROWS)"
-    # endif
 
     ifeq ($(SIM), ghdl)
         EXTRA_ARGS += --std=08

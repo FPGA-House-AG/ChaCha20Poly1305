@@ -36,6 +36,7 @@ import itertools
 import logging
 import os
 import random
+import re
 import string
 from textwrap import wrap
 #Quality of life import
@@ -111,7 +112,7 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
-    async def check_for_liveliness(self):
+    async def check_for_liveliness(self, packet_length):
         clock_counter = 0
         chacha_packets = 0
         chacha_timeout = 0
@@ -137,7 +138,7 @@ class TB(object):
                 if (chacha_packets):
                     chacha_timeout = 0
 
-            assert(chacha_timeout < 1500)
+            assert(chacha_timeout < packet_length * 10)
 
 
 async def run_test(dut, payload_data=None, idle_inserter=None):
@@ -163,20 +164,19 @@ async def run_test(dut, payload_data=None, idle_inserter=None):
     await tb.source.send(test_frame)
     
     try:
-        cocotb.start_soon(tb.check_for_liveliness())
+        coro        = cocotb.start_soon(tb.check_for_liveliness(len(payload)))
+        print("Started liveliness test")
+        rx_frame    = await tb.sink.recv()
+        rx_frame    = reverse_bytearray(rx_frame.tdata)
+        assert rx_frame == plaintext
     except TimeoutError:
         print("The DUT has timed out. If this is an expected behavior, the test is considered a success")
         if(data_valid):
             raise TestFailure("Expected test to finish, but the DUT has hanged when given propper data.")
         else:
             pass
-
-    rx_frame        = await tb.sink.recv()
-    rx_frame        = reverse_bytearray(rx_frame.tdata)
-    
-    assert rx_frame == plaintext
-
-    for i in range(10):
+    coro.cancel()
+    for i in range(20):
         await RisingEdge(tb.dut.clk)
 
 def cycle_pause():
@@ -190,7 +190,14 @@ def reverse_bytearray(byte_array):
 
     return bytearray(b''.join(info))
 
+hex_chars = "0123456789abcdef"
+seed      = 0
 
+def replace(match):
+    global seed
+    index = match.start()
+    random.seed(seed + index)
+    return ''.join([random.choice(hex_chars) for _ in range(2)])
 
 def test_case_1():
     
@@ -198,7 +205,7 @@ def test_case_1():
     key = '80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f 90 91 92 93 94 95 96 97 98 99 9A 9B 9C 9D 9E 9F '
     plaintext = b'Ladies and Gentlemen of the class of \'99: If I could offer you only one tip for the future, sunscreen would be it.\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     key = bytes(bytearray.fromhex(key))
-    aad = ''#'50 51 52 53 c0 c1 c2 c3 c4 c5 c6 c7'
+    aad = ''
     aad = bytearray.fromhex(aad)
     ciphertext_hex = '04 00 00 80 00 00 00 01 40 41 42 43 44 45 46 47 '
     ciphertext_hex+= 'a4 79 cb 54 62 89 46 d6 f4 04 2a 8e 38 4e f4 bd ' 
@@ -282,8 +289,8 @@ def test_case_4():
 def test_case_5():
     
     #None test, should fail
-    key            = ''#'00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
-    header_counter = ''#'04 00 00 80 00 00 00 01 00 00 00 00 00 00 00 00 '
+    key            = ''
+    header_counter = ''
     aad            = ''
     key            = bytes(bytearray.fromhex(key))
     header_counter = bytearray.fromhex(header_counter)
@@ -297,15 +304,19 @@ def test_case_5():
         return {"ciphertext": ciphertext_hex, "key": key, "data_valid": False, "plaintext": plaintext}
 
     except:
-        return {"ciphertext": b'\x00'*160, "key": b'\x00'*32, "data_valid": False, "plaintext": plaintext}
+        return {"ciphertext": b'', "key": b'', "data_valid": False, "plaintext": plaintext}
 
 def test_case_6():
+    #Completely randomized data test
 
-    #Large ammount of data test   
-    key               = '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '
-    header_counter    = '04 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 '
+    global seed
+    seed = random.randint(0, 10000)
+    print('\n\n\n RANDOM SEED FOR THIS TEST IS', str(seed), '\n\n\n')
+
+    key               = bytes(''.join(random.choice(string.ascii_letters + string.punctuation + string.whitespace + string.digits) for i in range(32)), 'utf-8') 
+    header_counter    = '04 XX XX XX XX XX XX 01 XX XX XX XX XX XX XX XX '
+    header_counter    = re.sub(r"XX", replace, header_counter)
     aad               = ''
-    key               = bytes(bytearray.fromhex(key))
     aad               = bytearray.fromhex(aad)
     plaintext_length  = random.randint(1, 1504)
     plaintext         = bytearray(bytes(''.join(random.choice(string.ascii_letters + string.punctuation + string.whitespace + string.digits) for i in range(plaintext_length)), 'utf-8'))
@@ -341,7 +352,7 @@ def test_case_6():
 
 if cocotb.SIM_NAME:    
     factory = TestFactory(run_test)
-    factory.add_option("payload_data",  [test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_6, test_case_1, test_case_2, test_case_3, test_case_4, test_case_5])
+    factory.add_option("payload_data", [test_case_1, test_case_2, test_case_3, test_case_4, test_case_5] + [test_case_6] * 45)
     factory.add_option("idle_inserter", [None, cycle_pause])
     factory.generate_tests()
 
