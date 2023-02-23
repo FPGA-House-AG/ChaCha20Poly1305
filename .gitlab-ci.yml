@@ -18,7 +18,7 @@
 
 default:
   tags:
-    - chacha20poly1305_tests
+    - spinalhdl
 
 # List of stages for jobs, and their order of execution, these run sequential
 stages:
