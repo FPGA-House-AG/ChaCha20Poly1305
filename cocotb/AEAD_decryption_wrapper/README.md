@@ -75,8 +75,9 @@ So is the header_counter `''`
 
 
 ## Test case 6
-Non-generic, random seed test with arbitrary ammounts of data. Calling this test multiple times assures us component works for different data lengths.  
-The plaintext used is generated using a random seed.
+Non-generic, random seed test with arbitrary ammounts of data, arbitrary key, header, and data. 
+Calling this test multiple times assures us component works for different data lengths and different data as well.  
+The plaintext used is generated using a random seed. So is the key, header, etc.
 The test is safe because we're giving the component currated header_counter parameters and keys.
 This test should always pass, regardless of the length of the data sent to it 
 
@@ -85,4 +86,4 @@ The plaintext of it is the generic `DEPENDS OF THE RANDOM SEED`
 
 The header_counter `DEPENDS OF THE RANDOM SEED` 
 
-The key of this test is the currated 32 bytes of:  `'00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 '`
+The key of this test is the currated 32 bytes of:  `DEPENDS ON THE RANDOM SEED`
