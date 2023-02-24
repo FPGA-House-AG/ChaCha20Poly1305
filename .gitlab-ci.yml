@@ -32,6 +32,6 @@ unit-test-job:   # This job runs in the test stage.
     - cd cocotb/AEAD_encryption_wrapper
     - make
     - echo "Finished Encryptor tests"
-#    - cd ../AEAD_decryption_wrapper
-#    - make
-#    - echo "Finished Decryptor tests"
+    - cd ../AEAD_decryption_wrapper
+    - make
+    - echo "Finished Decryptor tests"
