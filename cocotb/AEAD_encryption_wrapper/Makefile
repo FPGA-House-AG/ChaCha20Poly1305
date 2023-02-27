@@ -34,10 +34,10 @@ WAVES ?= 1
 COCOTB_HDL_TIMEUNIT = 1ns
 COCOTB_HDL_TIMEPRECISION = 1ps
 
-DUT      = AEAD_encryption_wrapper
+DUT      = AEAD_encryption_wrapper_kar
 TOPLEVEL = $(DUT)
 MODULE   = test_$(DUT)
-DUTDIR   = ../../src
+DUTDIR   = ../../src_dsp_opt
 
 ifeq ($(TOPLEVEL_LANG), verilog)
 VERILOG_SOURCES += $(DUTDIR)/$(DUT).v
