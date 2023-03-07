@@ -156,7 +156,7 @@ end process;
 
 header_out <= header_shreg(287);
 
-header <= x"000000"&('0'&n_in)&Im&(nonce(63 downto 0));
+header <= x"040000"&('0'&n_in)&Im&(nonce(63 downto 0));
 
 process(clk)
 begin
@@ -192,7 +192,7 @@ if rising_edge(clk) then
         nonce         <= x"00000000"&msg_reordered(63 downto 0);
 --        nonce <= x"070000004041424344454647";---for testbench compatible to RFC7539
         n_in          <= msg_reordered(106 downto 100);
---        Im            <= msg_reordered(106 downto 100);
+        Im            <= msg_reordered(95 downto 64);
     else
         tvalid_nonce  <= '0';
         tlast_nonce   <= '0';
