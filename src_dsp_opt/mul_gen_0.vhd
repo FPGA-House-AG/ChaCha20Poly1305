@@ -3,17 +3,17 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.bus_pkg1.all;
   
-entity mult_gen_0 IS
+entity mul_gen_0 IS
   PORT (
     CLK : IN STD_LOGIC;
     A : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
     B : IN STD_LOGIC_VECTOR(16 DOWNTO 0);
     P : OUT STD_LOGIC_VECTOR(33 DOWNTO 0)
   );
-END mult_gen_0;
+END mul_gen_0;
   
 
-architecture Behavioral of mult_gen_0 is
+architecture Behavioral of mul_gen_0 is
 
 signal A0,B0              : unsigned(16 downto 0);
 signal sum0,sum1,sum2                    : unsigned(33 downto 0);
