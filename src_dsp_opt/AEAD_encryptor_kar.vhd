@@ -60,8 +60,8 @@ COMPONENT ChaCha20_128
 		axi_tdata_in_msg      : in  unsigned(127 downto 0);
 		axi_tready_in_msg     : out STD_LOGIC;
 --		data_out              : out unsigned(127 downto 0);
-		axi_tvalid_out_msg    : out  STD_LOGIC;
-		axi_tlast_out_msg     : out  STD_LOGIC;
+		axi_tvalid_out_msg    : out  STD_LOGIC:='0';
+		axi_tlast_out_msg     : out  STD_LOGIC:='0';
 		axi_tdata_out_msg     : out  unsigned(127 downto 0);
 		axi_tready_out_msg    : in STD_LOGIC
         );

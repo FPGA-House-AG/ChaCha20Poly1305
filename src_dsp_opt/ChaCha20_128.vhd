@@ -20,8 +20,8 @@ entity ChaCha20_128 is
 		axi_tdata_in_msg     : in  unsigned(127 downto 0);
 		axi_tready_in_msg    : out STD_LOGIC:='1';
 		
-		axi_tvalid_out_msg    : out  STD_LOGIC;
-		axi_tlast_out_msg     : out  STD_LOGIC;
+		axi_tvalid_out_msg    : out  STD_LOGIC:='0';
+		axi_tlast_out_msg     : out  STD_LOGIC:='0';
 		axi_tdata_out_msg     : out  unsigned(127 downto 0);
 		axi_tready_out_msg    : in STD_LOGIC
 		
@@ -50,9 +50,9 @@ signal data_out_fifo_uns    : unsigned(127 downto 0);
 signal plaintext_reg        : unsigned(127 downto 0);
 signal cnt_valid,cnt_valid_out    : natural range 0 to 3:=0;
 signal wr_en,wr_en_1        : STD_LOGIC:='0';
-signal shreg_tvalid         : type_shreg_tvalid_chacha;
-signal shreg_tlast          : type_shreg_tlast_chacha;
-signal shreg_wren           : type_shreg_wren_chacha;
+signal shreg_tvalid         : type_shreg_tvalid_chacha:=(others=>'0');
+signal shreg_tlast          : type_shreg_tlast_chacha:=(others=>'0');
+signal shreg_wren           : type_shreg_wren_chacha:=(others=>'0');
 signal shreg_n_in           : type_shreg_n_cnt_aead;--81
 signal n_bytes              : unsigned(15 downto 0);
 

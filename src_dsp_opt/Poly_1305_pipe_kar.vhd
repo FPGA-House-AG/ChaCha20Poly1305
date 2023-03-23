@@ -54,8 +54,8 @@ signal mod_red_out          : unsigned(129 downto 0);
 signal tag                  : unsigned(130 downto 0);
 signal shreg_s1             : type_shreg_S_poly1;
 signal shreg_s2             : type_shreg_S_poly2;
-signal shreg_tlast          : type_shreg_tlast_poly;
-signal shreg_tvalid         : type_shreg_tvalid_poly;
+signal shreg_tlast          : type_shreg_tlast_poly :=(others=>'0');
+signal shreg_tvalid         : type_shreg_tvalid_poly:=(others=>'0');
 signal shreg_blck           : type_shreg_blck_poly;
 
 

@@ -58,8 +58,8 @@ signal r_pow_n          : unsigned(129 downto 0);
 signal shreg_s          : type_shreg_S_poly_top;
 signal shreg_blck       : type_shreg_blck_poly_top;
 
-signal shreg_tvalid_top  : type_shreg_tvalid_top;
-signal shreg_tlast_top   : type_shreg_tlast_top;
+signal shreg_tvalid_top  : type_shreg_tvalid_top:=(others=>'0');
+signal shreg_tlast_top   : type_shreg_tlast_top:=(others=>'0');
 
 
 begin
