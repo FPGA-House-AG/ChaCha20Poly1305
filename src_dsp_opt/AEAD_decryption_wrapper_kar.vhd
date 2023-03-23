@@ -26,7 +26,8 @@ entity AEAD_decryption_wrapper_kar is
 		source_tdata        : out UNSIGNED(127 downto 0);
 		source_tready       : in  STD_LOGIC;
 ------------------------------
-		tag_valid            : out STD_LOGIC
+		tag_valid            : out STD_LOGIC;
+		tag_pulse            : out STD_LOGIC
 		
 		);
 end AEAD_decryption_wrapper_kar;
@@ -60,6 +61,7 @@ COMPONENT AEAD_decryption_kar is
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC;
+        tag_pulse             : out STD_LOGIC;
 		n_in                 : in  unsigned(6 downto 0)
 ----------------------------
         );
@@ -130,6 +132,7 @@ u1 : AEAD_decryption_kar
         axi_tdata_out       => source_tdata,
         axi_tready_out      => '1',
         tag_valid           => tag_valid,
+        tag_pulse           => tag_pulse,
         n_in                => n_in_int
 
     );
