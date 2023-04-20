@@ -1,5 +1,5 @@
 
-
+ 
 --in this module we have to split first clock out of next data
 --30.01.2023 - changed n_in
 library IEEE;
