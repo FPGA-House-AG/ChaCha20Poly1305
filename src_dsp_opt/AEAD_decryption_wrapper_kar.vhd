@@ -21,13 +21,12 @@ entity AEAD_decryption_wrapper_kar is
 		in_key         : in  UNSIGNED(255 downto 0);
 ------------------------------
 --  axi_st_out
-		source_tvalid       : out STD_LOGIC;
-		source_tlast        : out STD_LOGIC;
+		source_tvalid       : out STD_LOGIC:='0';
+		source_tlast        : out STD_LOGIC:='0';
 		source_tdata        : out UNSIGNED(127 downto 0);
 		source_tready       : in  STD_LOGIC;
 ------------------------------
-		tag_valid            : out STD_LOGIC;
-		tag_pulse            : out STD_LOGIC
+		tag_valid            : out STD_LOGIC
 		
 		);
 end AEAD_decryption_wrapper_kar;
@@ -54,14 +53,13 @@ COMPONENT AEAD_decryption_kar is
 		axi_tready_in_nonce  : out STD_LOGIC;
 ------------------------------
 --  axi_st_out
-		axi_tvalid_out       : out STD_LOGIC;
-		axi_tlast_out        : out STD_LOGIC;
+		axi_tvalid_out       : out STD_LOGIC:='0';
+		axi_tlast_out        : out STD_LOGIC:='0';
 		axi_tdata_out        : out UNSIGNED(127 downto 0);
 		axi_tready_out       : in  STD_LOGIC;
 ------------------------------
 -- additional ports		
         tag_valid             : out STD_LOGIC;
-        tag_pulse             : out STD_LOGIC;
 		n_in                 : in  unsigned(6 downto 0)
 ----------------------------
         );
@@ -132,7 +130,6 @@ u1 : AEAD_decryption_kar
         axi_tdata_out       => source_tdata,
         axi_tready_out      => '1',
         tag_valid           => tag_valid,
-        tag_pulse           => tag_pulse,
         n_in                => n_in_int
 
     );
