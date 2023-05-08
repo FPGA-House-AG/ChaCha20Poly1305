@@ -297,6 +297,7 @@ if rising_edge(clk) then
         end if;
         tag_pulse <= '1';
     else
+        tag_valid <= '0';
         tag_pulse <= '0';
     end if;
     
